@@ -410,7 +410,7 @@
       <p id="viewerConnectingText">Establishing secure connection...</p>
     </div>
 
-    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="remoteVideo" autoplay playsinline muted></video>
 
     <div class="viewer-toolbar">
       <span class="toolbar-label" id="toolbarLabel">—</span>
@@ -587,6 +587,7 @@
         if (event.streams && event.streams[0]) {
           video.srcObject = event.streams[0];
           video.muted = true; // start muted
+          video.play().catch(e => console.error('[Web] Play failed:', e));
         }
         document.getElementById('viewerConnecting').classList.add('hidden');
       };
