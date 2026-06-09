@@ -29,6 +29,9 @@ if (process.platform === 'darwin') {
   app.dock.hide();
 }
 
+// Disable WebRTC mDNS obfuscation to fix '.local' resolution errors on local networks
+app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+
 const gotSingleLock = app.requestSingleInstanceLock();
 if (!gotSingleLock) {
   app.quit();
@@ -195,6 +198,10 @@ function createHostWindow() {
   });
 
   hostWindow.loadFile(path.join(__dirname, 'ui', 'host.html'));
+
+  hostWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Host Renderer] ${message}`);
+  });
 
   hostWindow.on('closed', () => {
     hostWindow = null;
