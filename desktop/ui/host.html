@@ -97,7 +97,7 @@
         if (event.candidate) {
           window.onedesk.sendSignal('webrtc-ice-candidate', {
             targetSocketId: senderSocketId,
-            candidate: event.candidate
+            candidate: event.candidate.toJSON()
           });
         }
       };
@@ -167,7 +167,10 @@
       // Send answer
       window.onedesk.sendSignal('webrtc-answer', {
         targetSocketId: senderSocketId,
-        answer: pc.localDescription
+        answer: {
+          type: pc.localDescription.type,
+          sdp: pc.localDescription.sdp
+        }
       });
 
       peers.set(senderSocketId, peerData);
