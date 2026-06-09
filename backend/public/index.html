@@ -407,7 +407,7 @@
     <div class="viewer-connecting" id="viewerConnecting">
       <div class="spinner"></div>
       <h2 id="viewerTargetName">Connecting...</h2>
-      <p>Establishing secure connection</p>
+      <p id="viewerConnectingText">Establishing secure connection...</p>
     </div>
 
     <video id="remoteVideo" autoplay playsinline></video>
@@ -578,6 +578,7 @@
 
       peerConnection.ontrack = (event) => {
         console.log('[Web] Track received:', event.track.kind);
+        document.getElementById('viewerConnectingText').textContent = 'Video track received, waiting for stream...';
         const video = document.getElementById('remoteVideo');
         if (event.streams && event.streams[0]) {
           video.srcObject = event.streams[0];
@@ -628,12 +629,14 @@
       };
 
       // Create and send offer
+      document.getElementById('viewerConnectingText').textContent = 'Creating connection offer...';
       const offer = await peerConnection.createOffer({
         offerToReceiveVideo: true,
         offerToReceiveAudio: false
       });
       await peerConnection.setLocalDescription(offer);
 
+      document.getElementById('viewerConnectingText').textContent = 'Sending offer to host...';
       socket.emit('webrtc-offer', {
         targetSocketId: targetDevice.socketId,
         offer: peerConnection.localDescription
@@ -641,8 +644,14 @@
     }
 
     async function handleAnswer(data) {
+      document.getElementById('viewerConnectingText').textContent = 'Answer received, configuring connection...';
       if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        try {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          document.getElementById('viewerConnectingText').textContent = 'Negotiating connection route...';
+        } catch (err) {
+          document.getElementById('viewerConnectingText').textContent = 'Error: ' + err.message;
+        }
       }
     }
 
