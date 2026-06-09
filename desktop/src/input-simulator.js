@@ -80,6 +80,9 @@ class InputSimulator {
         case 'keyup':
           await this._handleKeyUp(event);
           break;
+        case 'typeText':
+          await this._handleTypeText(event);
+          break;
         default:
           console.warn(`[Input] Unknown event type: ${event.type}`);
       }
@@ -160,6 +163,12 @@ class InputSimulator {
       for (const mod of modifiers) {
         await this.keyboard.releaseKey(mod);
       }
+    }
+  }
+
+  async _handleTypeText(event) {
+    if (event.text) {
+      await this.keyboard.type(event.text);
     }
   }
 

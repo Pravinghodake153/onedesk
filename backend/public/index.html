@@ -415,12 +415,16 @@
     <div class="viewer-toolbar">
       <span class="toolbar-label" id="toolbarLabel">—</span>
       <div class="toolbar-actions">
+        <button class="tb-btn" id="btnVirtualKeyboard" title="Toggle Keyboard" onclick="toggleVirtualKeyboard()">⌨️</button>
         <button class="tb-btn" id="btnWebAudio" title="Toggle Audio" onclick="toggleAudio()">🔇</button>
         <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()">📊</button>
         <button class="tb-btn" title="Fullscreen" onclick="toggleFullscreen()">⛶</button>
         <button class="tb-btn" title="Disconnect" onclick="disconnectViewer()" style="color:#ff453a">✕</button>
       </div>
     </div>
+
+    <!-- Hidden input to summon mobile keyboard -->
+    <input type="text" id="virtualKeyboardInput" style="opacity:0; position:absolute; top:-100px; width:1px; height:1px;" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off">
 
     <div class="viewer-stats" id="viewerStats">
       <div>RTT: <span id="statRTT">—</span></div>
@@ -712,16 +716,33 @@
       });
 
       // Touch events for mobile
+      let touchStartPos = { x: 0, y: 0 };
+      let touchStartTime = 0;
+      let isDragging = false;
+      let touchCount = 0;
+
       video.addEventListener('touchstart', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         e.preventDefault();
+        touchCount = e.touches.length;
         const touch = e.touches[0];
         const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousedown', x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height, button: 0 });
+        
+        touchStartPos = {
+          x: (touch.clientX - rect.left) / rect.width,
+          y: (touch.clientY - rect.top) / rect.height
+        };
+        touchStartTime = Date.now();
+        isDragging = false;
+
+        // Move cursor to touch position instantly
+        sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
       }, { passive: false });
 
       video.addEventListener('touchmove', throttle((e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
+        e.preventDefault();
+        isDragging = true;
         const touch = e.touches[0];
         const rect = video.getBoundingClientRect();
         sendInput({ type: 'mousemove', x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height });
@@ -729,8 +750,58 @@
 
       video.addEventListener('touchend', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
-        sendInput({ type: 'mouseup', x: 0, y: 0, button: 0 });
+        e.preventDefault();
+        
+        const touchDuration = Date.now() - touchStartTime;
+        
+        // If it was a quick tap without much dragging, it's a click
+        if (!isDragging && touchDuration < 300) {
+          // If 1 finger tap = left click (0), if 2 finger tap = right click (2)
+          const button = (touchCount > 1) ? 2 : 0;
+          sendInput({ type: 'mousedown', x: touchStartPos.x, y: touchStartPos.y, button });
+          // Small delay then release
+          setTimeout(() => {
+            sendInput({ type: 'mouseup', x: touchStartPos.x, y: touchStartPos.y, button });
+          }, 50);
+        }
+        
+        touchCount = e.touches.length;
       });
+
+      // Virtual Keyboard Capture
+      const virtualInput = document.getElementById('virtualKeyboardInput');
+      virtualInput.addEventListener('input', (e) => {
+        if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (e.data) {
+          // A character was typed via soft keyboard
+          sendInput({ type: 'typeText', text: e.data });
+        }
+        // Clear input to prevent it from filling up
+        virtualInput.value = '';
+      });
+
+      virtualInput.addEventListener('keydown', (e) => {
+        if (!inputChannel || inputChannel.readyState !== 'open') return;
+        // Handle special keys like Backspace or Enter from soft keyboard
+        if (e.key === 'Backspace' || e.key === 'Enter') {
+          sendInput({ type: 'keydown', key: e.key, code: e.code || e.key });
+          setTimeout(() => {
+            sendInput({ type: 'keyup', key: e.key, code: e.code || e.key });
+          }, 20);
+        }
+      });
+    }
+
+    function toggleVirtualKeyboard() {
+      const virtualInput = document.getElementById('virtualKeyboardInput');
+      const btn = document.getElementById('btnVirtualKeyboard');
+      if (document.activeElement === virtualInput) {
+        virtualInput.blur();
+        btn.style.background = 'rgba(255,255,255,0.1)';
+      } else {
+        virtualInput.focus();
+        btn.style.background = 'rgba(255,255,255,0.2)';
+      }
     }
 
     function sendInput(event) {
