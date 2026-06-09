@@ -421,6 +421,10 @@
     <div class="viewer-toolbar">
       <span class="toolbar-label" id="toolbarLabel">—</span>
       <div class="toolbar-actions">
+        <button class="tb-btn" title="Toggle Camera" onclick="sendCommand('switch_camera')">📷</button>
+        <button class="tb-btn" title="Toggle Screen" onclick="sendCommand('switch_screen')">📱</button>
+        <button class="tb-btn" title="Toggle Microphone" onclick="sendCommand('toggle_mic')">🎙️</button>
+        <button class="tb-btn" title="Play Sound (Find Phone)" onclick="sendCommand('play_sound')">🔊</button>
         <button class="tb-btn" id="btnVirtualKeyboard" title="Toggle Keyboard" onclick="toggleVirtualKeyboard()">⌨️</button>
         <button class="tb-btn" id="btnWebAudio" title="Toggle Audio" onclick="toggleAudio()">🔇</button>
         <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()">📊</button>
@@ -800,6 +804,17 @@
           }, 20);
         }
       });
+    }
+
+    // ─── Remote Commands ────────────────────────────────────────
+    function sendCommand(command, payload = {}) {
+      if (!targetDevice || !socket) return;
+      socket.emit('device-command', {
+        targetSocketId: targetDevice.socketId,
+        command: command,
+        payload: payload
+      });
+      console.log(`[Web] Sent command: ${command}`);
     }
 
     function toggleVirtualKeyboard() {

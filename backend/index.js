@@ -132,6 +132,15 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('device-command', (data) => {
+    const { targetSocketId, command, payload } = data;
+    socket.to(targetSocketId).emit('device-command', {
+      senderSocketId: socket.id,
+      command,
+      payload
+    });
+  });
+
   // ─── Connection Request/Accept (optional pre-WebRTC handshake) ────
   socket.on('connection-request', (data) => {
     const { targetSocketId } = data;
