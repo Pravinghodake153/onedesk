@@ -410,7 +410,13 @@
       <p id="viewerConnectingText">Establishing secure connection...</p>
     </div>
 
-    <video id="remoteVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline webkit-playsinline muted></video>
+
+    <!-- Autoplay Fallback Overlay -->
+    <div id="playOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; color: white;">
+      <h2 style="margin-bottom: 20px;">Video Paused</h2>
+      <button onclick="manualPlay()" style="padding: 15px 30px; font-size: 18px; border-radius: 8px; background: #0A84FF; border: none; color: white; cursor: pointer;">Tap to Play Video</button>
+    </div>
 
     <div class="viewer-toolbar">
       <span class="toolbar-label" id="toolbarLabel">—</span>
@@ -587,7 +593,10 @@
         if (event.streams && event.streams[0]) {
           video.srcObject = event.streams[0];
           video.muted = true; // start muted
-          video.play().catch(e => console.error('[Web] Play failed:', e));
+          video.play().catch(e => {
+            console.error('[Web] Play failed:', e);
+            document.getElementById('playOverlay').style.display = 'flex';
+          });
         }
         document.getElementById('viewerConnecting').classList.add('hidden');
       };
@@ -869,6 +878,15 @@
       document.getElementById('clipboardToastText').textContent = text;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function manualPlay() {
+      const video = document.getElementById('remoteVideo');
+      video.play().then(() => {
+        document.getElementById('playOverlay').style.display = 'none';
+      }).catch(err => {
+        alert("Still couldn't play: " + err.message);
+      });
     }
 
     function toggleAudio() {
