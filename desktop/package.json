@@ -1,0 +1,22 @@
+{
+  "name": "onedesk",
+  "version": "1.0.0",
+  "description": "One Computer Everywhere — Your computer follows you, not your hardware.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^42.4.0"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "socket.io-client": "^4.8.3",
+    "uuid": "^14.0.0"
+  }
+}

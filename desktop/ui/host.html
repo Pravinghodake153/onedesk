@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head><title>OneDesk Host Process</title></head>
+<body>
+  <!-- Hidden renderer — handles WebRTC hosting, screen capture,
+       input forwarding to native simulator, clipboard sync,
+       and file transfer DataChannels. Never shown to user. -->
+  <script>
+    const ICE_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ];
+
+    const peers = new Map();     // socketId -> { pc, inputChannel, clipboardChannel, fileChannel }
+    let screenStream = null;
+    let micStream = null;
+
+    // ─── Screen Capture ─────────────────────────────────────────────
+    async function getScreenStream() {
+      if (screenStream && screenStream.active) return screenStream;
+
+      try {
+        const sources = await window.onedesk.getScreenSources();
+        if (sources.length === 0) {
+          console.error('[Host] No screen sources available');
+          return null;
+        }
+
+        const primarySource = sources[0];
+        
+        // Get quality constraints from main process
+        const screenInfo = await window.onedesk.getScreenInfo();
+
+        screenStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: primarySource.id,
+              maxWidth: screenInfo.width || 1920,
+              maxHeight: screenInfo.height || 1080,
+              maxFrameRate: 30
+            }
+          }
+        });
+
+        // Monitor stream health
+        screenStream.getVideoTracks()[0].onended = () => {
+          console.warn('[Host] Screen capture track ended — will recapture on next connection');
+          screenStream = null;
+        };
+
+        console.log(`[Host] Screen capture started: ${screenInfo.width}x${screenInfo.height}`);
+        return screenStream;
+      } catch (err) {
+        console.error('[Host] Failed to capture screen:', err);
+        return null;
+      }
+    }
+
+    // ─── Handle Incoming WebRTC Offer ───────────────────────────────
+    async function handleOffer(data) {
+      const { senderSocketId, offer } = data;
+      console.log(`[Host] Processing offer from ${senderSocketId}`);
+
+      // Capture screen
+      const stream = await getScreenStream();
+      if (!stream) {
+        console.error('[Host] Cannot accept — no screen stream');
+        return;
+      }
+
+      // Create peer connection
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+      // Add screen tracks
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream);
+      });
+
+      // Capture and add microphone
+      try {
+        if (!micStream) {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        micStream.getTracks().forEach(track => {
+          pc.addTrack(track, micStream);
+        });
+        console.log('[Host] Microphone capture started');
+      } catch (err) {
+        console.error('[Host] Failed to capture microphone:', err);
+      }
+
+      // ICE candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          window.onedesk.sendSignal('webrtc-ice-candidate', {
+            targetSocketId: senderSocketId,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      // ─── Data Channels ──────────────────────────────────────────
+      const peerData = { pc, inputChannel: null, clipboardChannel: null, fileChannel: null };
+
+      pc.ondatachannel = (event) => {
+        const channel = event.channel;
+        console.log(`[Host] Data channel received: ${channel.label}`);
+
+        switch (channel.label) {
+          case 'input':
+            peerData.inputChannel = channel;
+            channel.onmessage = (msg) => {
+              try {
+                const inputEvent = JSON.parse(msg.data);
+                // Forward to main process for native OS simulation
+                window.onedesk.simulateInput(inputEvent);
+              } catch (e) {
+                console.error('[Host] Invalid input event:', e);
+              }
+            };
+            break;
+
+          case 'clipboard':
+            peerData.clipboardChannel = channel;
+            channel.onmessage = (msg) => {
+              try {
+                const clipboardData = JSON.parse(msg.data);
+                window.onedesk.writeClipboardFromRemote(clipboardData);
+              } catch (e) {
+                console.error('[Host] Invalid clipboard data:', e);
+              }
+            };
+            break;
+
+          case 'filetransfer':
+            peerData.fileChannel = channel;
+            channel.onmessage = (msg) => {
+              try {
+                const fileMsg = JSON.parse(msg.data);
+                window.onedesk.receiveFileMessage(fileMsg);
+              } catch (e) {
+                console.error('[Host] Invalid file transfer message:', e);
+              }
+            };
+            break;
+        }
+      };
+
+      // Connection state management
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        console.log(`[Host] Peer ${senderSocketId}: ${state}`);
+        
+        if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+          cleanupPeer(senderSocketId);
+        }
+      };
+
+      // Set remote description and create answer
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      // Send answer
+      window.onedesk.sendSignal('webrtc-answer', {
+        targetSocketId: senderSocketId,
+        answer: pc.localDescription
+      });
+
+      peers.set(senderSocketId, peerData);
+      console.log(`[Host] Answer sent to ${senderSocketId} — streaming`);
+    }
+
+    // ─── Handle ICE Candidate ───────────────────────────────────────
+    async function handleIceCandidate(data) {
+      const { senderSocketId, candidate } = data;
+      const peer = peers.get(senderSocketId);
+      if (peer && peer.pc && candidate) {
+        try {
+          await peer.pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn('[Host] Failed to add ICE candidate:', err.message);
+        }
+      }
+    }
+
+    // ─── Clipboard Sync (Host → Clients) ────────────────────────────
+    window.onedesk.onClipboardChanged((data) => {
+      // Send local clipboard changes to all connected clients
+      for (const [socketId, peer] of peers) {
+        if (peer.clipboardChannel && peer.clipboardChannel.readyState === 'open') {
+          peer.clipboardChannel.send(JSON.stringify(data));
+        }
+      }
+    });
+
+    // ─── Cleanup ────────────────────────────────────────────────────
+    function cleanupPeer(socketId) {
+      const peer = peers.get(socketId);
+      if (peer) {
+        if (peer.pc) peer.pc.close();
+        peers.delete(socketId);
+        console.log(`[Host] Cleaned up peer ${socketId}`);
+      }
+
+      // If no more peers, stop screen capture to save resources
+      if (peers.size === 0) {
+        if (screenStream) {
+          screenStream.getTracks().forEach(t => t.stop());
+          screenStream = null;
+        }
+        if (micStream) {
+          micStream.getTracks().forEach(t => t.stop());
+          micStream = null;
+        }
+        console.log('[Host] No active connections — capture stopped (saving resources)');
+      }
+    }
+
+    // ─── Listen for Signaling Events ────────────────────────────────
+    window.onedesk.onWebRTCOffer(handleOffer);
+    window.onedesk.onWebRTCIceCandidate(handleIceCandidate);
+    window.onedesk.onHostIncomingOffer(handleOffer);
+    window.onedesk.onHostIceCandidate(handleIceCandidate);
+
+    console.log('[Host] Host renderer ready — energy-saving mode active');
+  </script>
+</body>
+</html>

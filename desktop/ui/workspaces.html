@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OneDesk</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      background: transparent;
+      color: #1d1d1f;
+      -webkit-app-region: drag;
+      user-select: none;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── Title Bar ─────────────────────────────────────────────────── */
+    .titlebar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 80px 0 80px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      color: #86868b;
+    }
+
+    /* ─── Content ───────────────────────────────────────────────────── */
+    .content {
+      -webkit-app-region: no-drag;
+      padding: 0 24px 24px;
+      height: calc(100vh - 52px);
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 4px;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 20px;
+    }
+
+    /* ─── Device Cards ─────────────────────────────────────────────── */
+    .device-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .device-card {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 12px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .device-card:hover {
+      background: rgba(255, 255, 255, 0.92);
+      border-color: rgba(0, 122, 255, 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .device-card:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .device-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .device-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: white;
+    }
+
+    .device-meta h3 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+
+    .device-meta p {
+      font-size: 12px;
+      color: #86868b;
+      margin-top: 2px;
+    }
+
+    .device-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #34c759;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34c759;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── Empty State ──────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #86868b;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+
+    .empty-state h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin-bottom: 6px;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 260px;
+      margin: 0 auto;
+    }
+
+    /* ─── Scrollbar ────────────────────────────────────────────────── */
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="titlebar">OneDesk</div>
+  <div class="content">
+    <div class="section-title">Your Computers</div>
+    <div class="section-subtitle">Tap to connect instantly</div>
+    <div class="device-list" id="deviceList">
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <h3>Looking for devices...</h3>
+        <p>Make sure OneDesk is running on your other computer and both are online.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let lastDevices = [];
+    let selfId = null;
+
+    function getPlatformIcon(deviceName) {
+      const name = deviceName.toLowerCase();
+      if (name.includes('mac') || name.includes('book')) return '💻';
+      if (name.includes('win') || name.includes('desktop')) return '🖥️';
+      return '🖥️';
+    }
+
+    function getPlatformLabel(deviceName) {
+      const name = deviceName.toLowerCase();
+      if (name.includes('mac') || name.includes('book')) return 'macOS';
+      if (name.includes('win') || name.includes('desktop')) return 'Windows';
+      return 'Computer';
+    }
+
+    function renderDevices(devices) {
+      const container = document.getElementById('deviceList');
+
+      if (!devices || devices.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🔍</div>
+            <h3>No computers found</h3>
+            <p>Make sure OneDesk is running on your other computer and both are online.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = devices.map(device => {
+        const isSelf = device.deviceId === selfId;
+        const label = isSelf ? `${device.deviceName} (This Device)` : device.deviceName;
+        const sublabel = isSelf ? 'Test connection' : getPlatformLabel(device.deviceName);
+        const iconBg = isSelf ? 'linear-gradient(135deg, #34c759, #30d158)' : 'linear-gradient(135deg, #667eea, #764ba2)';
+
+        return `
+          <div class="device-card" data-socket-id="${device.socketId}" onclick="handleConnect(this)">
+            <div class="device-info">
+              <div class="device-icon" style="background: ${iconBg}">${getPlatformIcon(device.deviceName)}</div>
+              <div class="device-meta">
+                <h3>${label}</h3>
+                <p>${sublabel}</p>
+              </div>
+            </div>
+            <div class="device-status">
+              <span class="status-dot"></span>
+              Online
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleConnect(card) {
+      const socketId = card.dataset.socketId;
+      const device = lastDevices.find(d => d.socketId === socketId);
+      if (device) {
+        window.onedesk.connectToDevice(device);
+      }
+    }
+
+    // Listen for device list updates from main process
+    window.onedesk.onDevicesUpdated((data) => {
+      selfId = data.selfId;
+      lastDevices = data.devices;
+      renderDevices(data.devices);
+    });
+  </script>
+</body>
+</html>
