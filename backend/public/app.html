@@ -989,7 +989,6 @@
       // Show viewer
       showPage('viewerPage');
       document.getElementById('viewerTargetName').textContent = targetDevice.deviceName;
-      document.getElementById('toolbarLabel').textContent = targetDevice.deviceName;
 
       // Create peer connection
       peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
