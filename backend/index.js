@@ -58,6 +58,22 @@ app.get('/stats', (req, res) => {
   });
 });
 
+// Disconnect endpoint for sendBeacon (reliable delivery during page unload)
+app.post('/api/disconnect', (req, res) => {
+  const { targetSocketId, senderSocketId } = req.body;
+  if (targetSocketId) {
+    console.log(`[API Disconnect] ${senderSocketId} → ${targetSocketId}`);
+    io.to(targetSocketId).emit('webrtc-disconnect', {
+      senderSocketId: senderSocketId || 'unknown'
+    });
+
+    // Clean up connection tracking
+    const connId = `${senderSocketId}:${targetSocketId}`;
+    connections.delete(connId);
+  }
+  res.status(200).json({ ok: true });
+});
+
 // ─── Socket.IO ──────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] ${socket.id}`);

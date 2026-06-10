@@ -1607,6 +1607,34 @@
       document.getElementById('viewerConnecting').classList.remove('hidden');
     }
 
+    // ─── Tab Close / Refresh Guard ────────────────────────────────
+    // Show native browser "Leave site?" dialog if a session is active
+    window.addEventListener('beforeunload', (e) => {
+      if (peerConnection) {
+        e.preventDefault();
+        // Modern browsers ignore custom messages but still show the dialog
+        e.returnValue = 'You have an active streaming session. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    });
+
+    // If the user confirms leaving, clean up the session so the host stops streaming
+    window.addEventListener('pagehide', () => {
+      if (peerConnection && socket && targetDevice) {
+        // Use sendBeacon for reliable delivery even during page unload
+        const payload = JSON.stringify({
+          targetSocketId: targetDevice.socketId,
+          senderSocketId: socket.id
+        });
+        navigator.sendBeacon('/api/disconnect', payload);
+
+        // Also try socket as a fallback
+        socket.emit('webrtc-disconnect', {
+          targetSocketId: targetDevice.socketId
+        });
+      }
+    });
+
     // ─── Initialize ─────────────────────────────────────────────
     connectSignaling();
   </script>
