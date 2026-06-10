@@ -371,11 +371,17 @@ app.whenReady().then(() => {
             signaling.sendRemoteBrowserUrl(remoteBrowserTarget, { url: navigationUrl });
           }
         });
-
-              // ignore capture errors
-            }
+        // Use the native paint event for much higher performance and reliability than capturePage polling
+        remoteBrowserView.webContents.on('paint', (event, dirty, image) => {
+          if (remoteBrowserTarget && !image.isEmpty()) {
+            signaling.sendRemoteBrowserFrame(remoteBrowserTarget, {
+              image: image.toJPEG(70).toString('base64')
+            });
           }
-        }, 200); // ~5 FPS
+        });
+        
+        // Target ~15 FPS to balance performance and bandwidth
+        remoteBrowserView.webContents.setFrameRate(15);
       }
     }
 
