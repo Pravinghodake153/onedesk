@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, screen, Notification } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const { SignalingClient } = require('./src/signaling');
 const { InputSimulator } = require('./src/input-simulator');
 const { ClipboardSync } = require('./src/clipboard-sync');
@@ -214,6 +215,98 @@ app.whenReady().then(() => {
           title: 'OneDesk Settings',
           body: `Auto-Start on boot has been turned ${newSetting ? 'ON' : 'OFF'}.`
         }).show();
+      }
+    }
+  });
+
+  // Handle file system requests
+  signaling.on('file-system-request', async (data) => {
+    const { senderSocketId, action, path: requestedPath } = data;
+    
+    try {
+      let targetPath = requestedPath;
+      if (targetPath === '~') {
+        targetPath = os.homedir();
+      }
+
+      if (action === 'navigate_up') {
+        targetPath = path.dirname(targetPath);
+      }
+
+      if (action === 'list_directory' || action === 'navigate_up') {
+        // Resolve absolute path securely
+        const resolvedPath = path.resolve(targetPath);
+        
+        // Read directory
+        const dirents = await fs.promises.readdir(resolvedPath, { withFileTypes: true });
+        const items = [];
+        
+        for (const dirent of dirents) {
+          try {
+            const itemPath = path.join(resolvedPath, dirent.name);
+            items.push({
+              name: dirent.name,
+              isDirectory: dirent.isDirectory(),
+              size: dirent.isFile() ? (await fs.promises.stat(itemPath)).size : 0,
+              path: itemPath
+            });
+          } catch (e) {
+            // Ignore files with permission errors
+          }
+        }
+
+        signaling.sendFileSystemResponse(senderSocketId, {
+          type: 'directory',
+          path: resolvedPath,
+          items
+        });
+      }
+
+      if (action === 'download_file') {
+        const resolvedPath = path.resolve(targetPath);
+        const stats = await fs.promises.stat(resolvedPath);
+        
+        if (!stats.isFile()) throw new Error('Not a file');
+
+        const CHUNK_SIZE = 64 * 1024; // 64KB
+        const fd = await fs.promises.open(resolvedPath, 'r');
+        const buffer = Buffer.alloc(CHUNK_SIZE);
+        
+        let offset = 0;
+        let index = 0;
+
+        while (offset < stats.size) {
+          const { bytesRead } = await fd.read(buffer, 0, CHUNK_SIZE, offset);
+          if (bytesRead === 0) break;
+          
+          const chunkData = buffer.subarray(0, bytesRead).toString('base64');
+          
+          signaling.sendFileDownloadChunk(senderSocketId, {
+            status: 'chunk',
+            index: index,
+            data: chunkData
+          });
+          
+          offset += bytesRead;
+          index++;
+          
+          // Small delay to prevent overwhelming the socket
+          await new Promise(r => setTimeout(r, 2));
+        }
+        
+        await fd.close();
+        
+        signaling.sendFileDownloadChunk(senderSocketId, {
+          status: 'end'
+        });
+      }
+
+    } catch (err) {
+      console.error('[Main] File System Error:', err);
+      if (action === 'download_file') {
+        signaling.sendFileDownloadChunk(senderSocketId, { status: 'error', message: err.message });
+      } else {
+        signaling.sendFileSystemResponse(senderSocketId, { type: 'error', message: err.message });
       }
     }
   });

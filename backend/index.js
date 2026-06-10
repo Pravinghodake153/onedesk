@@ -141,6 +141,38 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ─── File System Relay ────────────────────────────────────────────
+  socket.on('file-system-request', (data) => {
+    const { targetSocketId, action, path } = data;
+    socket.to(targetSocketId).emit('file-system-request', {
+      senderSocketId: socket.id,
+      action,
+      path
+    });
+  });
+
+  socket.on('file-system-response', (data) => {
+    const { targetSocketId, type, path, items, message } = data;
+    socket.to(targetSocketId).emit('file-system-response', {
+      senderSocketId: socket.id,
+      type,
+      path,
+      items,
+      message
+    });
+  });
+
+  socket.on('file-download-chunk', (data) => {
+    const { targetSocketId, status, index, data: chunkData, message } = data;
+    socket.to(targetSocketId).emit('file-download-chunk', {
+      senderSocketId: socket.id,
+      status,
+      index,
+      data: chunkData,
+      message
+    });
+  });
+
   // ─── Connection Request/Accept (optional pre-WebRTC handshake) ────
   socket.on('connection-request', (data) => {
     const { targetSocketId } = data;

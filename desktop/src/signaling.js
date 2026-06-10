@@ -67,6 +67,11 @@ class SignalingClient extends EventEmitter {
       this.emit('device-command', data);
     });
 
+    // File System Request
+    this.socket.on('file-system-request', (data) => {
+      this.emit('file-system-request', data);
+    });
+
     // Connection request (someone wants to view our screen)
     this.socket.on('connection-request', (data) => {
       this.emit('connection-request', data);
@@ -94,6 +99,24 @@ class SignalingClient extends EventEmitter {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+    }
+  }
+
+  sendFileSystemResponse(targetSocketId, payload) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('file-system-response', {
+        targetSocketId,
+        ...payload
+      });
+    }
+  }
+
+  sendFileDownloadChunk(targetSocketId, payload) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('file-download-chunk', {
+        targetSocketId,
+        ...payload
+      });
     }
   }
 }
