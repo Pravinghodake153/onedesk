@@ -66,6 +66,10 @@ contextBridge.exposeInMainWorld('onedesk', {
     ipcRenderer.on('host-ice-candidate', (_, data) => callback(data));
   },
 
+  onWebRTCDisconnect: (callback) => {
+    ipcRenderer.on('webrtc-disconnect', (_, data) => callback(data));
+  },
+
   // ──────────────────────────────────────────────────────────────────
   // Input Simulation (host renderer → main process → native OS)
   // ──────────────────────────────────────────────────────────────────

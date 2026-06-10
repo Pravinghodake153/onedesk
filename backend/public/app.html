@@ -734,6 +734,8 @@
     let clipboardChannel = null;
     let statsInterval = null;
     let showingStats = false;
+    let inputListenersAttached = false;
+    let currentFeature = null;
     let devices = [];
     let targetDevice = null;
     let currentPath = '~';
@@ -800,7 +802,10 @@
         } else if (data.type === 'error') {
           alert('Error: ' + data.message);
           document.getElementById('fbList').innerHTML = `<div class="fb-loading">Error loading directory: ${data.message}</div>`;
-          // Remote Browser Signaling
+        }
+      });
+
+      // Remote Browser Signaling
       socket.on('remote-browser-frame', (data) => {
         document.getElementById('rbViewport').src = 'data:image/jpeg;base64,' + data.image;
         document.getElementById('rbLoading').style.display = 'none';
@@ -809,8 +814,6 @@
       socket.on('remote-browser-url', (data) => {
         document.getElementById('rbUrlInput').value = data.url;
         document.getElementById('rbLoading').style.display = 'none';
-      });
-    }
       });
 
       // File download chunks via signaling
@@ -987,10 +990,20 @@
       if (!targetDevice) return;
 
       console.log('[Web] Connecting to', targetDevice.deviceName);
+      currentFeature = feature;
 
       // Show viewer
       showPage('viewerPage');
       document.getElementById('viewerTargetName').textContent = targetDevice.deviceName;
+
+      // For camera/mic, hide input-related UI and set passive cursor
+      const viewerPage = document.getElementById('viewerPage');
+      const remoteVideo = document.getElementById('remoteVideo');
+      if (feature === 'camera' || feature === 'mic') {
+        remoteVideo.style.cursor = 'default';
+      } else {
+        remoteVideo.style.cursor = 'none';
+      }
 
       // Create peer connection
       peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -1001,7 +1014,9 @@
         const video = document.getElementById('remoteVideo');
         if (event.streams && event.streams[0]) {
           video.srcObject = event.streams[0];
-          video.muted = true; // start muted
+          // Screen share starts muted to avoid autoplay block;
+          // Camera/Mic start unmuted so you can actually hear/see
+          video.muted = (currentFeature === 'screen' || currentFeature === 'av');
           video.play().catch(e => {
             console.error('[Web] Play failed:', e);
             document.getElementById('playOverlay').style.display = 'flex';
@@ -1031,12 +1046,14 @@
         }
       };
 
-      // Input data channel
-      inputChannel = peerConnection.createDataChannel('input', { ordered: true });
-      inputChannel.onopen = () => {
-        console.log('[Web] Input channel open');
-        setupInputCapture();
-      };
+      // Input data channel (only for screen share)
+      if (feature === 'screen' || feature === 'av') {
+        inputChannel = peerConnection.createDataChannel('input', { ordered: true });
+        inputChannel.onopen = () => {
+          console.log('[Web] Input channel open');
+          setupInputCapture();
+        };
+      }
 
       // Clipboard data channel
       clipboardChannel = peerConnection.createDataChannel('clipboard', { ordered: true });
@@ -1089,6 +1106,9 @@
 
     // ─── Input Capture ──────────────────────────────────────────
     function setupInputCapture() {
+      if (inputListenersAttached) return;
+      inputListenersAttached = true;
+
       const video = document.getElementById('remoteVideo');
 
       video.addEventListener('mousemove', throttle((e) => {
@@ -1481,8 +1501,6 @@
     }
 
     // ─── Stats ──────────────────────────────────────────────────
-    let statsInterval = null;
-
     function startStatsMonitor() {
       statsInterval = setInterval(async () => {
         if (!peerConnection || !showingStats) return;
@@ -1562,10 +1580,29 @@
     }
 
     function disconnectViewer() {
+      // Notify the host to immediately stop streams
+      if (socket && targetDevice) {
+        socket.emit('webrtc-disconnect', {
+          targetSocketId: targetDevice.socketId
+        });
+      }
+
       if (peerConnection) { peerConnection.close(); peerConnection = null; }
       if (inputChannel) { inputChannel.close(); inputChannel = null; }
       if (clipboardChannel) { clipboardChannel.close(); clipboardChannel = null; }
       if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+
+      // Reset state for next connection
+      inputListenersAttached = false;
+      currentFeature = null;
+      showingStats = false;
+
+      // Reset video
+      const video = document.getElementById('remoteVideo');
+      video.srcObject = null;
+      video.muted = true;
+      document.getElementById('remoteVideo').style.cursor = 'none';
+
       showPage('dashboardPage');
       document.getElementById('viewerConnecting').classList.remove('hidden');
     }

@@ -133,6 +133,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('webrtc-disconnect', (data) => {
+    const { targetSocketId } = data;
+    console.log(`[Disconnect] ${socket.id} → ${targetSocketId}`);
+    socket.to(targetSocketId).emit('webrtc-disconnect', {
+      senderSocketId: socket.id
+    });
+
+    // Clean up connection tracking
+    const connId = `${socket.id}:${targetSocketId}`;
+    connections.delete(connId);
+  });
+
   socket.on('device-command', (data) => {
     const { targetSocketId, command, payload } = data;
     socket.to(targetSocketId).emit('device-command', {

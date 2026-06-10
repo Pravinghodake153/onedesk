@@ -80,14 +80,18 @@ function setupIPC() {
     }));
   });
 
-  // Media permissions
   ipcMain.handle('request-media-access', async (_, mediaType) => {
     if (process.platform !== 'darwin') return true;
     const status = systemPreferences.getMediaAccessStatus(mediaType);
+    console.log(`[Main] Media access status for ${mediaType}: ${status}`);
     if (status === 'granted') return true;
     if (status === 'not-determined') {
-      return await systemPreferences.askForMediaAccess(mediaType);
+      const granted = await systemPreferences.askForMediaAccess(mediaType);
+      console.log(`[Main] User ${granted ? 'granted' : 'denied'} ${mediaType} access`);
+      return granted;
     }
+    // Status is 'denied' or 'restricted'
+    console.error(`[Main] ${mediaType} access is ${status}. Go to System Settings > Privacy & Security > ${mediaType === 'camera' ? 'Camera' : 'Microphone'} and enable access for this app.`);
     return false;
   });
 
@@ -205,6 +209,13 @@ app.whenReady().then(() => {
   signaling.on('webrtc-ice-candidate', (data) => {
     if (hostWindow && !hostWindow.isDestroyed()) {
       hostWindow.webContents.send('webrtc-ice-candidate', data);
+    }
+  });
+
+  signaling.on('webrtc-disconnect', (data) => {
+    console.log(`[Main] Disconnect request from ${data.senderSocketId}`);
+    if (hostWindow && !hostWindow.isDestroyed()) {
+      hostWindow.webContents.send('webrtc-disconnect', data);
     }
   });
 

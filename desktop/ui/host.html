@@ -258,11 +258,19 @@
       }
     }
 
+    // ─── Handle Explicit Disconnect from Web Client ────────────────
+    function handleDisconnect(data) {
+      const { senderSocketId } = data;
+      console.log(`[Host] Explicit disconnect from ${senderSocketId}`);
+      cleanupPeer(senderSocketId);
+    }
+
     // ─── Listen for Signaling Events ────────────────────────────────
     window.onedesk.onWebRTCOffer(handleOffer);
     window.onedesk.onWebRTCIceCandidate(handleIceCandidate);
     window.onedesk.onHostIncomingOffer(handleOffer);
     window.onedesk.onHostIceCandidate(handleIceCandidate);
+    window.onedesk.onWebRTCDisconnect(handleDisconnect);
 
     console.log('[Host] Host renderer ready — energy-saving mode active');
   </script>
