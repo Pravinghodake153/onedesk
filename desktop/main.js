@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification, systemPreferences } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -78,6 +78,17 @@ function setupIPC() {
       name: s.name,
       thumbnail: s.thumbnail.toDataURL()
     }));
+  });
+
+  // Media permissions
+  ipcMain.handle('request-media-access', async (_, mediaType) => {
+    if (process.platform !== 'darwin') return true;
+    const status = systemPreferences.getMediaAccessStatus(mediaType);
+    if (status === 'granted') return true;
+    if (status === 'not-determined') {
+      return await systemPreferences.askForMediaAccess(mediaType);
+    }
+    return false;
   });
 
   // Screen info

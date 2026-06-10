@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld('onedesk', {
     return ipcRenderer.invoke('get-screen-sources');
   },
 
+  requestMediaAccess: (mediaType) => {
+    return ipcRenderer.invoke('request-media-access', mediaType);
+  },
+
   // ──────────────────────────────────────────────────────────────────
   // Host-specific channels
   // ──────────────────────────────────────────────────────────────────

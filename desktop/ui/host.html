@@ -61,35 +61,63 @@
 
     // ─── Handle Incoming WebRTC Offer ───────────────────────────────
     async function handleOffer(data) {
-      const { senderSocketId, offer } = data;
-      console.log(`[Host] Processing offer from ${senderSocketId}`);
+      const { senderSocketId, offer, feature = 'screen' } = data;
+      console.log(`[Host] Processing offer from ${senderSocketId} (${feature})`);
 
-      // Capture screen
-      const stream = await getScreenStream();
-      if (!stream) {
-        console.error('[Host] Cannot accept — no screen stream');
-        return;
+      // Capture requested streams
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      let hasTracks = false;
+
+      // Screen Capture
+      if (feature === 'screen' || feature === 'av') {
+        const stream = await getScreenStream();
+        if (stream) {
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          hasTracks = true;
+        } else {
+          console.error('[Host] Failed to attach screen stream');
+        }
       }
 
-      // Create peer connection
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-      // Add screen tracks
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream);
-      });
-
-      // Capture and add microphone
-      try {
-        if (!micStream) {
-          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Camera Capture
+      if (feature === 'camera' || feature === 'av') {
+        try {
+          const granted = await window.onedesk.requestMediaAccess('camera');
+          if (granted) {
+            const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            camStream.getTracks().forEach(track => pc.addTrack(track, camStream));
+            hasTracks = true;
+            console.log('[Host] Camera capture started');
+          } else {
+            console.error('[Host] Camera access denied by macOS');
+          }
+        } catch (err) {
+          console.error('[Host] Failed to capture camera:', err);
         }
-        micStream.getTracks().forEach(track => {
-          pc.addTrack(track, micStream);
-        });
-        console.log('[Host] Microphone capture started');
-      } catch (err) {
-        console.error('[Host] Failed to capture microphone:', err);
+      }
+
+      // Microphone Capture
+      if (feature === 'mic' || feature === 'camera' || feature === 'av' || feature === 'screen') {
+        try {
+          const granted = await window.onedesk.requestMediaAccess('microphone');
+          if (granted) {
+            if (!micStream) {
+              micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
+            micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
+            hasTracks = true;
+            console.log('[Host] Microphone capture started');
+          } else {
+            console.error('[Host] Microphone access denied by macOS');
+          }
+        } catch (err) {
+          console.error('[Host] Failed to capture microphone:', err);
+        }
+      }
+
+      if (!hasTracks) {
+        console.error('[Host] Cannot accept offer — no media streams captured');
+        return;
       }
 
       // ICE candidates

@@ -975,12 +975,12 @@
       if (feature === 'screen' || feature === 'camera' || feature === 'mic' || feature === 'av') {
         // Send command to host to prepare the right stream if necessary
         // For now, just connect
-        connectToDevice(targetDevice.socketId);
+        connectToDevice(targetDevice.socketId, feature);
       }
     }
 
     // ─── WebRTC Connection ──────────────────────────────────────
-    async function connectToDevice(socketId) {
+    async function connectToDevice(socketId, feature = 'screen') {
       targetDevice = devices.find(d => d.socketId === socketId);
       if (!targetDevice) return;
 
@@ -1053,15 +1053,16 @@
       // Create and send offer
       document.getElementById('viewerConnectingText').textContent = 'Creating connection offer...';
       const offer = await peerConnection.createOffer({
-        offerToReceiveVideo: true,
-        offerToReceiveAudio: false
+        offerToReceiveVideo: (feature === 'screen' || feature === 'camera' || feature === 'av'),
+        offerToReceiveAudio: (feature === 'mic' || feature === 'camera' || feature === 'av' || feature === 'screen')
       });
       await peerConnection.setLocalDescription(offer);
 
       document.getElementById('viewerConnectingText').textContent = 'Sending offer to host...';
       socket.emit('webrtc-offer', {
         targetSocketId: targetDevice.socketId,
-        offer: peerConnection.localDescription
+        offer: peerConnection.localDescription,
+        feature: feature
       });
     }
 
@@ -1357,10 +1358,20 @@
       const url = document.getElementById('rbUrlInput').value;
       if (!url) return;
       document.getElementById('rbLoading').style.display = 'flex';
+      
+      let finalUrl = url;
+      if (!url.includes('://')) {
+        if (url.includes('.') && !url.includes(' ')) {
+          finalUrl = 'https://' + url;
+        } else {
+          finalUrl = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+        }
+      }
+      
       socket.emit('remote-browser-request', {
         targetSocketId: targetDevice.socketId,
         action: 'navigate',
-        url: url.includes('://') ? url : 'https://' + url
+        url: finalUrl
       });
     }
 

@@ -92,14 +92,15 @@ io.on('connection', (socket) => {
 
   // ─── WebRTC Signaling ─────────────────────────────────────────────
   socket.on('webrtc-offer', (data) => {
-    const { targetSocketId, offer } = data;
+    const { targetSocketId, offer, feature } = data;
     const sender = devices.get(socket.id);
-    console.log(`[Offer] ${sender?.deviceName || socket.id} → ${targetSocketId}`);
+    console.log(`[Offer] ${sender?.deviceName || socket.id} → ${targetSocketId} (${feature})`);
     
     socket.to(targetSocketId).emit('webrtc-offer', {
       senderSocketId: socket.id,
       senderDeviceName: sender?.deviceName || 'Unknown',
-      offer
+      offer,
+      feature
     });
 
     // Track the connection
