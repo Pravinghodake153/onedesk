@@ -2,6 +2,10 @@
   "name": "onedesk",
   "version": "1.0.0",
   "description": "One Computer Everywhere — Your computer follows you, not your hardware.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pravinghodake153/onedesk.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
