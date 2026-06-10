@@ -3,941 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OneDesk — Your Computer Everywhere</title>
+  <title>OneDesk - One Computer Everywhere</title>
+  <meta name="description" content="Seamlessly control your devices remotely from anywhere with OneDesk. Experience lightning-fast WebRTC technology for screen sharing, camera control, and more.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-      --bg-primary: #0a0a0f;
-      --bg-card: rgba(255,255,255,0.04);
-      --bg-card-hover: rgba(255,255,255,0.07);
-      --border: rgba(255,255,255,0.06);
-      --border-hover: rgba(102,126,234,0.3);
-      --text-primary: #f5f5f7;
-      --text-secondary: rgba(255,255,255,0.5);
-      --text-muted: rgba(255,255,255,0.3);
-      --accent: #667eea;
-      --accent-glow: rgba(102,126,234,0.15);
-      --green: #34c759;
-      --red: #ff453a;
-      --orange: #ff9f0a;
-      --radius: 14px;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* ─── Background ─────────────────────────────────────────────── */
-    .bg-gradient {
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 600px 400px at 20% 20%, rgba(102,126,234,0.08), transparent),
-        radial-gradient(ellipse 500px 300px at 80% 80%, rgba(118,75,162,0.06), transparent);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ─── Layout ─────────────────────────────────────────────────── */
-    .app {
-      position: relative;
-      z-index: 1;
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 60px 24px;
-      min-height: 100vh;
-    }
-
-    /* ─── Header ─────────────────────────────────────────────────── */
-    .header {
-      text-align: center;
-      margin-bottom: 48px;
-    }
-
-    .logo {
-      font-size: 32px;
-      margin-bottom: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, var(--accent), #764ba2);
-      border-radius: 18px;
-      box-shadow: 0 8px 32px rgba(102,126,234,0.3);
-    }
-
-    .header h1 {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: -0.8px;
-      margin-top: 16px;
-      background: linear-gradient(135deg, #fff, rgba(255,255,255,0.7));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .header p {
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin-top: 6px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 12px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .status-badge.online {
-      background: rgba(52,199,89,0.1);
-      color: var(--green);
-      border: 1px solid rgba(52,199,89,0.2);
-    }
-    .status-badge.offline {
-      background: rgba(255,69,58,0.1);
-      color: var(--red);
-      border: 1px solid rgba(255,69,58,0.2);
-    }
-    .status-badge.connecting {
-      background: rgba(255,159,10,0.1);
-      color: var(--orange);
-      border: 1px solid rgba(255,159,10,0.2);
-    }
-    .status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-    .status-badge.online .status-dot { animation: pulse 2s ease-in-out infinite; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    /* ─── Section ────────────────────────────────────────────────── */
-    .section-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-    }
-
-    /* ─── Device Cards ───────────────────────────────────────────── */
-    .device-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .device-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .device-card:hover {
-      background: var(--bg-card-hover);
-      border-color: var(--border-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-    }
-    .device-card:active {
-      transform: translateY(0);
-    }
-
-    .device-info {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .device-icon {
-      width: 44px; height: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent), #764ba2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-    .device-meta h3 {
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.2px;
-    }
-    .device-meta p {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 2px;
-    }
-    .device-online {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--green);
-      font-weight: 500;
-    }
-    .device-online .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    /* ─── Empty State ────────────────────────────────────────────── */
-    .empty-state {
-      text-align: center;
-      padding: 48px 20px;
-    }
-    .empty-state .icon {
-      font-size: 40px;
-      margin-bottom: 16px;
-      opacity: 0.3;
-    }
-    .empty-state h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .empty-state p {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      max-width: 280px;
-      margin: 0 auto;
-    }
-
-    /* ─── Viewer ─────────────────────────────────────────────────── */
-    #viewerPage {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #000;
-      z-index: 1000;
-    }
-    #viewerPage.active { display: flex; flex-direction: column; }
-
-    #remoteVideo {
-      flex: 1;
-      width: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-
-    /* Viewer connecting overlay */
-    .viewer-connecting {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, #0a0a0f, #1a1a2e);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.5s ease;
-      z-index: 10;
-    }
-    .viewer-connecting.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid rgba(255,255,255,0.08);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 20px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .viewer-connecting h2 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      margin-bottom: 6px;
-    }
-    .viewer-connecting p {
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    /* Viewer toolbar */
-    .viewer-toolbar {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 44px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      opacity: 0;
-      transition: opacity 0.25s;
-      z-index: 20;
-    }
-    #viewerPage:hover .viewer-toolbar { opacity: 1; }
-
-    .toolbar-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.8);
-    }
-    .toolbar-actions {
-      display: flex;
-      gap: 6px;
-    }
-    .tb-btn {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      color: rgba(255,255,255,0.7);
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s;
-    }
-    .tb-btn:hover {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-    }
-
-    /* Stats overlay in viewer */
-    .viewer-stats {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(10px);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-family: 'SF Mono', monospace;
-      font-size: 11px;
-      color: rgba(255,255,255,0.5);
-      z-index: 20;
-      display: none;
-    }
-    .viewer-stats.visible { display: block; }
-
-    /* Clipboard toast */
-    .clipboard-toast {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      background: rgba(30,30,40,0.9);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(102,126,234,0.3);
-      border-radius: 10px;
-      padding: 10px 16px;
-      color: rgba(255,255,255,0.8);
-      font-size: 12px;
-      z-index: 50;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transform: translateY(80px);
-      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-    }
-    .clipboard-toast.show { transform: translateY(0); }
-
-    /* ─── Footer ─────────────────────────────────────────────────── */
-    .footer {
-      margin-top: 48px;
-      text-align: center;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="landing.css">
 </head>
 <body>
-  <div class="bg-gradient"></div>
 
-  <!-- ─── Device List Page ─────────────────────────────────────── -->
-  <div class="app" id="devicePage">
-    <div class="header">
-      <div class="logo">⬡</div>
-      <h1>OneDesk</h1>
-      <p>Your computer follows you, not your hardware</p>
-      <div class="status-badge connecting" id="statusBadge">
-        <span class="status-dot"></span>
-        <span id="statusText">Connecting...</span>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="logo">OneDesk</div>
+    <div class="nav-links">
+      <a href="#downloads">Downloads</a>
+      <a href="#documentation">Documentation</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="/app.html" class="nav-btn">Launch Web App</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="hero-content">
+      <div class="badge">🚀 v1.0.0 is Live</div>
+      <h1>One Computer,<br><span class="gradient-text">Everywhere.</span></h1>
+      <p>Control your phone, tablet, or desktop instantly from any browser. No complex setup. Lightning-fast WebRTC peer-to-peer connection.</p>
+      <div class="hero-actions">
+        <a href="#downloads" class="btn btn-primary">Download Now</a>
+        <a href="/app.html" class="btn btn-secondary">Launch Web App</a>
       </div>
     </div>
-
-    <div class="section-label">Available Computers</div>
-    <div class="device-list" id="deviceList">
-      <div class="empty-state">
-        <div class="icon">🔍</div>
-        <h3>Looking for devices...</h3>
-        <p>Make sure OneDesk desktop app is running on the computer you want to connect to.</p>
+    <div class="hero-visual">
+      <div class="glass-orb orb-1"></div>
+      <div class="glass-orb orb-2"></div>
+      <div class="glass-card mockup">
+        <div class="mockup-header">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-device">CPH2729 (Phone) <span class="status-online">● Online</span></div>
+        </div>
       </div>
     </div>
+  </header>
 
-    <div class="footer">
-      OneDesk — One Computer Everywhere
+  <!-- Downloads Section -->
+  <section id="downloads" class="section">
+    <div class="section-header">
+      <h2>Get <span class="gradient-text">OneDesk</span></h2>
+      <p>Available across all major platforms. Download the host app for the device you want to control.</p>
     </div>
-  </div>
+    
+    <div class="download-grid">
+      <!-- Android -->
+      <div class="download-card">
+        <div class="os-icon">🤖</div>
+        <h3>Android</h3>
+        <p>Control your phone seamlessly with background persistence.</p>
+        <a href="/downloads/OneDesk-Android.apk" class="btn btn-download" download>Download APK</a>
+      </div>
 
-  <!-- ─── Viewer Page ──────────────────────────────────────────── -->
-  <div id="viewerPage">
-    <div class="viewer-connecting" id="viewerConnecting">
-      <div class="spinner"></div>
-      <h2 id="viewerTargetName">Connecting...</h2>
-      <p id="viewerConnectingText">Establishing secure connection...</p>
-    </div>
+      <!-- Windows -->
+      <div class="download-card">
+        <div class="os-icon">🪟</div>
+        <h3>Windows</h3>
+        <p>Control your Windows PC with our lightning fast native client.</p>
+        <a href="/downloads/OneDesk-Windows.exe" class="btn btn-download" download>Download EXE</a>
+      </div>
 
-    <video id="remoteVideo" autoplay playsinline webkit-playsinline muted></video>
-
-    <!-- Autoplay Fallback Overlay -->
-    <div id="playOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; color: white;">
-      <h2 style="margin-bottom: 20px;">Video Paused</h2>
-      <button onclick="manualPlay()" style="padding: 15px 30px; font-size: 18px; border-radius: 8px; background: #0A84FF; border: none; color: white; cursor: pointer;">Tap to Play Video</button>
-    </div>
-
-    <div class="viewer-toolbar">
-      <span class="toolbar-label" id="toolbarLabel">—</span>
-      <div class="toolbar-actions">
-        <button class="tb-btn" title="Toggle Camera" onclick="sendCommand('switch_camera')">📷</button>
-        <button class="tb-btn" title="Toggle Screen" onclick="sendCommand('switch_screen')">📱</button>
-        <button class="tb-btn" title="Toggle Microphone" onclick="sendCommand('toggle_mic')">🎙️</button>
-        <button class="tb-btn" title="Play Sound (Find Phone)" onclick="sendCommand('play_sound')">🔊</button>
-        <button class="tb-btn" id="btnVirtualKeyboard" title="Toggle Keyboard" onclick="toggleVirtualKeyboard()">⌨️</button>
-        <button class="tb-btn" id="btnWebAudio" title="Toggle Audio" onclick="toggleAudio()">🔇</button>
-        <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()">📊</button>
-        <button class="tb-btn" title="Fullscreen" onclick="toggleFullscreen()">⛶</button>
-        <button class="tb-btn" title="Disconnect" onclick="disconnectViewer()" style="color:#ff453a">✕</button>
+      <!-- Mac -->
+      <div class="download-card">
+        <div class="os-icon">🍏</div>
+        <h3>macOS</h3>
+        <p>Control your Mac seamlessly with full desktop integration.</p>
+        <a href="/downloads/OneDesk-Mac.dmg" class="btn btn-download" download>Download DMG</a>
       </div>
     </div>
+  </section>
 
-    <!-- Hidden input to summon mobile keyboard -->
-    <input type="text" id="virtualKeyboardInput" style="opacity:0; position:absolute; top:-100px; width:1px; height:1px;" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off">
+  <!-- Documentation Section -->
+  <section id="documentation" class="section dark-section">
+    <div class="section-header">
+      <h2>Documentation</h2>
+      <p>Everything you need to get started.</p>
+    </div>
+    
+    <div class="doc-container">
+      <div class="doc-block">
+        <h3>1. Initial Setup</h3>
+        <p>Install the downloaded application on the device you wish to control. Make sure it is connected to the internet.</p>
+      </div>
+      <div class="doc-block">
+        <h3>2. Granting Permissions</h3>
+        <p>For OneDesk to function properly, you must grant accessibility permissions (on Android) or Screen Recording permissions (on Mac/Windows). This allows OneDesk to capture the screen and control inputs.</p>
+        <div class="alert tip">
+          <strong>Tip:</strong> Android users should enable "Ignore Battery Optimizations" to allow unattended access while the phone sleeps.
+        </div>
+      </div>
+      <div class="doc-block">
+        <h3>3. Connecting via Web App</h3>
+        <p>Once the host app is running, navigate to the <a href="/app.html">Web App</a> from any browser. You will see your device listed under "Available Computers". Click to instantly connect!</p>
+      </div>
+    </div>
+  </section>
 
-    <div class="viewer-stats" id="viewerStats">
-      <div>RTT: <span id="statRTT">—</span></div>
-      <div>FPS: <span id="statFPS">—</span></div>
+  <!-- Troubleshooting Section -->
+  <section id="troubleshooting" class="section">
+    <div class="section-header">
+      <h2>Troubleshooting</h2>
+      <p>Having issues? Here are common fixes.</p>
     </div>
 
-    <div class="clipboard-toast" id="clipboardToast">
-      <span>📋</span>
-      <span id="clipboardToastText">Clipboard synced</span>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <h4>Q: My phone is not showing up online!</h4>
+        <p>A: Ensure your phone has an active internet connection. If you are using a local server, ensure both devices are on the same Wi-Fi network.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Q: I click connect, but the screen is black.</h4>
+        <p>A: This means Screen Recording permission was denied. On Android, force close the app, open it again, and click "Grant Remote Access". On Mac, check System Settings > Privacy > Screen Recording.</p>
+      </div>
+      <div class="faq-item">
+        <h4>Q: The connection drops when my phone sleeps.</h4>
+        <p>A: Your phone's battery optimizer is killing the app. Go to Android Settings > Apps > OneDesk > Battery, and set it to "Unrestricted" or "Ignore Battery Optimizations".</p>
+      </div>
+      <div class="faq-item">
+        <h4>Q: Microphone toggle isn't working.</h4>
+        <p>A: Ensure you granted "Record Audio" permissions when the app first launched.</p>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Socket.IO from backend -->
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="logo">OneDesk</div>
+      <p>© 2026 OneDesk. All rights reserved.</p>
+    </div>
+  </footer>
 
   <script>
-    // ─── State ──────────────────────────────────────────────────
-    let socket = null;
-    let peerConnection = null;
-    let inputChannel = null;
-    let clipboardChannel = null;
-    let devices = [];
-    let targetDevice = null;
-    let showingStats = false;
-
-    const ICE_SERVERS = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-    ];
-
-    const BROWSER_DEVICE_ID = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    // ─── Connect to Signaling Server ────────────────────────────
-    function connectSignaling() {
-      // Connect to same origin (backend serves this page)
-      socket = io(window.location.origin, {
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 10000,
-        transports: ['websocket', 'polling']
-      });
-
-      socket.on('connect', () => {
-        console.log('[Web] Connected:', socket.id);
-        updateStatus('online', 'Connected');
-
-        // Register as a browser client
-        socket.emit('register-device', {
-          deviceId: BROWSER_DEVICE_ID,
-          deviceName: `Browser (${getBrowserName()})`,
-          type: 'client'
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        document.querySelector(this.getAttribute('href')).scrollIntoView({
+          behavior: 'smooth'
         });
       });
-
-      socket.on('disconnect', () => {
-        console.log('[Web] Disconnected');
-        updateStatus('offline', 'Disconnected');
-        devices = [];
-        renderDevices();
-      });
-
-      socket.on('device-list-updated', (deviceList) => {
-        // Only show hosts (not other browser clients)
-        devices = deviceList.filter(d =>
-          d.type === 'host' && d.deviceId !== BROWSER_DEVICE_ID
-        );
-        renderDevices();
-      });
-
-      // WebRTC signaling
-      socket.on('webrtc-answer', (data) => {
-        handleAnswer(data);
-      });
-
-      socket.on('webrtc-ice-candidate', (data) => {
-        handleRemoteIceCandidate(data);
-      });
-    }
-
-    // ─── UI Updates ─────────────────────────────────────────────
-    function updateStatus(state, text) {
-      const badge = document.getElementById('statusBadge');
-      badge.className = `status-badge ${state}`;
-      document.getElementById('statusText').textContent = text;
-    }
-
-    function renderDevices() {
-      const container = document.getElementById('deviceList');
-
-      if (devices.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="icon">🖥️</div>
-            <h3>No computers online</h3>
-            <p>Make sure OneDesk desktop app is running on the computer you want to connect to.</p>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = devices.map(device => `
-        <div class="device-card" onclick="connectToDevice('${device.socketId}')">
-          <div class="device-info">
-            <div class="device-icon">${getPlatformIcon(device.deviceName)}</div>
-            <div class="device-meta">
-              <h3>${device.deviceName}</h3>
-              <p>${getPlatformLabel(device.deviceName)}</p>
-            </div>
-          </div>
-          <div class="device-online">
-            <span class="dot"></span>
-            Online
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function getPlatformIcon(name) {
-      const n = name.toLowerCase();
-      if (n.includes('mac') || n.includes('book')) return '💻';
-      return '🖥️';
-    }
-
-    function getPlatformLabel(name) {
-      const n = name.toLowerCase();
-      if (n.includes('mac') || n.includes('book')) return 'macOS';
-      if (n.includes('win')) return 'Windows';
-      return 'Computer';
-    }
-
-    function getBrowserName() {
-      const ua = navigator.userAgent;
-      if (ua.includes('Chrome')) return 'Chrome';
-      if (ua.includes('Firefox')) return 'Firefox';
-      if (ua.includes('Safari')) return 'Safari';
-      if (ua.includes('Edge')) return 'Edge';
-      return 'Browser';
-    }
-
-    // ─── WebRTC Connection ──────────────────────────────────────
-    async function connectToDevice(socketId) {
-      targetDevice = devices.find(d => d.socketId === socketId);
-      if (!targetDevice) return;
-
-      console.log('[Web] Connecting to', targetDevice.deviceName);
-
-      // Show viewer
-      document.getElementById('viewerPage').classList.add('active');
-      document.getElementById('viewerTargetName').textContent = targetDevice.deviceName;
-      document.getElementById('toolbarLabel').textContent = targetDevice.deviceName;
-
-      // Create peer connection
-      peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-      peerConnection.ontrack = (event) => {
-        console.log('[Web] Track received:', event.track.kind);
-        document.getElementById('viewerConnectingText').textContent = 'Video track received, waiting for stream...';
-        const video = document.getElementById('remoteVideo');
-        if (event.streams && event.streams[0]) {
-          video.srcObject = event.streams[0];
-          video.muted = true; // start muted
-          video.play().catch(e => {
-            console.error('[Web] Play failed:', e);
-            document.getElementById('playOverlay').style.display = 'flex';
-          });
-        }
-        document.getElementById('viewerConnecting').classList.add('hidden');
-      };
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('webrtc-ice-candidate', {
-            targetSocketId: targetDevice.socketId,
-            candidate: event.candidate
-          });
-        }
-      };
-
-      peerConnection.onconnectionstatechange = () => {
-        const state = peerConnection.connectionState;
-        console.log('[Web] Connection state:', state);
-        if (state === 'connected') {
-          document.getElementById('viewerConnecting').classList.add('hidden');
-          startStatsMonitor();
-        }
-        if (state === 'failed') {
-          peerConnection.restartIce();
-        }
-      };
-
-      // Input data channel
-      inputChannel = peerConnection.createDataChannel('input', { ordered: true });
-      inputChannel.onopen = () => {
-        console.log('[Web] Input channel open');
-        setupInputCapture();
-      };
-
-      // Clipboard data channel
-      clipboardChannel = peerConnection.createDataChannel('clipboard', { ordered: true });
-      clipboardChannel.onmessage = (msg) => {
-        try {
-          const data = JSON.parse(msg.data);
-          if (data.type === 'text' && data.data) {
-            navigator.clipboard.writeText(data.data).then(() => {
-              showClipboardToast('Clipboard received from host');
-            }).catch(() => {});
-          }
-        } catch (e) {}
-      };
-
-      // Create and send offer
-      document.getElementById('viewerConnectingText').textContent = 'Creating connection offer...';
-      const offer = await peerConnection.createOffer({
-        offerToReceiveVideo: true,
-        offerToReceiveAudio: false
-      });
-      await peerConnection.setLocalDescription(offer);
-
-      document.getElementById('viewerConnectingText').textContent = 'Sending offer to host...';
-      socket.emit('webrtc-offer', {
-        targetSocketId: targetDevice.socketId,
-        offer: peerConnection.localDescription
-      });
-    }
-
-    async function handleAnswer(data) {
-      document.getElementById('viewerConnectingText').textContent = 'Answer received, configuring connection...';
-      if (peerConnection) {
-        try {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-          document.getElementById('viewerConnectingText').textContent = 'Negotiating connection route...';
-        } catch (err) {
-          document.getElementById('viewerConnectingText').textContent = 'Error: ' + err.message;
-        }
-      }
-    }
-
-    async function handleRemoteIceCandidate(data) {
-      if (peerConnection && data.candidate) {
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        } catch (e) {}
-      }
-    }
-
-    // ─── Input Capture ──────────────────────────────────────────
-    function setupInputCapture() {
-      const video = document.getElementById('remoteVideo');
-
-      video.addEventListener('mousemove', throttle((e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousemove', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
-      }, 16));
-
-      video.addEventListener('mousedown', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousedown', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, button: e.button });
-      });
-
-      video.addEventListener('mouseup', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mouseup', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, button: e.button });
-      });
-
-      video.addEventListener('wheel', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        e.preventDefault();
-        sendInput({ type: 'scroll', deltaX: e.deltaX, deltaY: e.deltaY });
-      }, { passive: false });
-
-      video.addEventListener('contextmenu', (e) => e.preventDefault());
-
-      document.addEventListener('keydown', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        if (!document.getElementById('viewerPage').classList.contains('active')) return;
-        e.preventDefault();
-        sendInput({
-          type: 'keydown', key: e.key, code: e.code,
-          shiftKey: e.shiftKey, ctrlKey: e.ctrlKey,
-          altKey: e.altKey, metaKey: e.metaKey
-        });
-      });
-
-      document.addEventListener('keyup', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        if (!document.getElementById('viewerPage').classList.contains('active')) return;
-        e.preventDefault();
-        sendInput({ type: 'keyup', key: e.key, code: e.code });
-      });
-
-      // Touch events for mobile
-      let touchStartPos = { x: 0, y: 0 };
-      let touchStartTime = 0;
-      let isDragging = false;
-      let touchCount = 0;
-
-      video.addEventListener('touchstart', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        e.preventDefault();
-        touchCount = e.touches.length;
-        const touch = e.touches[0];
-        const rect = video.getBoundingClientRect();
-        
-        touchStartPos = {
-          x: (touch.clientX - rect.left) / rect.width,
-          y: (touch.clientY - rect.top) / rect.height
-        };
-        touchStartTime = Date.now();
-        isDragging = false;
-
-        // Move cursor to touch position instantly
-        sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
-      }, { passive: false });
-
-      video.addEventListener('touchmove', throttle((e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        e.preventDefault();
-        isDragging = true;
-        const touch = e.touches[0];
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousemove', x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height });
-      }, 16), { passive: false });
-
-      video.addEventListener('touchend', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        e.preventDefault();
-        
-        const touchDuration = Date.now() - touchStartTime;
-        
-        // If it was a quick tap without much dragging, it's a click
-        if (!isDragging && touchDuration < 300) {
-          // If 1 finger tap = left click (0), if 2 finger tap = right click (2)
-          const button = (touchCount > 1) ? 2 : 0;
-          sendInput({ type: 'mousedown', x: touchStartPos.x, y: touchStartPos.y, button });
-          // Small delay then release
-          setTimeout(() => {
-            sendInput({ type: 'mouseup', x: touchStartPos.x, y: touchStartPos.y, button });
-          }, 50);
-        }
-        
-        touchCount = e.touches.length;
-      });
-
-      // Virtual Keyboard Capture
-      const virtualInput = document.getElementById('virtualKeyboardInput');
-      virtualInput.addEventListener('input', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        if (e.data) {
-          // A character was typed via soft keyboard
-          sendInput({ type: 'typeText', text: e.data });
-        }
-        // Clear input to prevent it from filling up
-        virtualInput.value = '';
-      });
-
-      virtualInput.addEventListener('keydown', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
-        // Handle special keys like Backspace or Enter from soft keyboard
-        if (e.key === 'Backspace' || e.key === 'Enter') {
-          sendInput({ type: 'keydown', key: e.key, code: e.code || e.key });
-          setTimeout(() => {
-            sendInput({ type: 'keyup', key: e.key, code: e.code || e.key });
-          }, 20);
-        }
-      });
-    }
-
-    // ─── Remote Commands ────────────────────────────────────────
-    function sendCommand(command, payload = {}) {
-      if (!targetDevice || !socket) return;
-      socket.emit('device-command', {
-        targetSocketId: targetDevice.socketId,
-        command: command,
-        payload: payload
-      });
-      console.log(`[Web] Sent command: ${command}`);
-    }
-
-    function toggleVirtualKeyboard() {
-      const virtualInput = document.getElementById('virtualKeyboardInput');
-      const btn = document.getElementById('btnVirtualKeyboard');
-      if (document.activeElement === virtualInput) {
-        virtualInput.blur();
-        btn.style.background = 'rgba(255,255,255,0.1)';
-      } else {
-        virtualInput.focus();
-        btn.style.background = 'rgba(255,255,255,0.2)';
-      }
-    }
-
-    function sendInput(event) {
-      if (inputChannel && inputChannel.readyState === 'open') {
-        inputChannel.send(JSON.stringify(event));
-      }
-    }
-
-    function throttle(fn, ms) {
-      let last = 0;
-      return function(...args) {
-        const now = Date.now();
-        if (now - last >= ms) {
-          last = now;
-          fn.apply(this, args);
-        }
-      };
-    }
-
-    // ─── Stats ──────────────────────────────────────────────────
-    let statsInterval = null;
-
-    function startStatsMonitor() {
-      statsInterval = setInterval(async () => {
-        if (!peerConnection || !showingStats) return;
-        const stats = await peerConnection.getStats();
-        stats.forEach(report => {
-          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-            document.getElementById('statRTT').textContent =
-              Math.round((report.currentRoundTripTime || 0) * 1000) + 'ms';
-          }
-          if (report.type === 'inbound-rtp' && report.kind === 'video') {
-            document.getElementById('statFPS').textContent =
-              report.framesPerSecond || '—';
-          }
-        });
-      }, 2000);
-    }
-
-    function toggleStats() {
-      showingStats = !showingStats;
-      document.getElementById('viewerStats').classList.toggle('visible', showingStats);
-    }
-
-    // ─── Clipboard (browser → host) ─────────────────────────────
-    // Poll browser clipboard and send changes
-    let lastClipboard = '';
-    setInterval(async () => {
-      if (!clipboardChannel || clipboardChannel.readyState !== 'open') return;
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && text !== lastClipboard) {
-          lastClipboard = text;
-          clipboardChannel.send(JSON.stringify({ type: 'text', data: text, timestamp: Date.now() }));
-          showClipboardToast('Clipboard sent to host');
-        }
-      } catch (e) {
-        // Clipboard API requires user gesture / permission
-      }
-    }, 1000);
-
-    function showClipboardToast(text) {
-      const toast = document.getElementById('clipboardToast');
-      document.getElementById('clipboardToastText').textContent = text;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-
-    function manualPlay() {
-      const video = document.getElementById('remoteVideo');
-      video.play().then(() => {
-        document.getElementById('playOverlay').style.display = 'none';
-      }).catch(err => {
-        alert("Still couldn't play: " + err.message);
-      });
-    }
-
-    function toggleAudio() {
-      const video = document.getElementById('remoteVideo');
-      const btn = document.getElementById('btnWebAudio');
-      if (video.muted) {
-        video.muted = false;
-        btn.textContent = '🔊';
-        btn.style.background = 'rgba(255,255,255,0.2)';
-      } else {
-        video.muted = true;
-        btn.textContent = '🔇';
-        btn.style.background = 'rgba(255,255,255,0.1)';
-      }
-    }
-
-    // ─── Controls ───────────────────────────────────────────────
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.getElementById('viewerPage').requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    function disconnectViewer() {
-      if (peerConnection) { peerConnection.close(); peerConnection = null; }
-      if (inputChannel) { inputChannel.close(); inputChannel = null; }
-      if (clipboardChannel) { clipboardChannel.close(); clipboardChannel = null; }
-      if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
-      document.getElementById('viewerPage').classList.remove('active');
-      document.getElementById('viewerConnecting').classList.remove('hidden');
-    }
-
-    // ─── Initialize ─────────────────────────────────────────────
-    connectSignaling();
+    });
   </script>
 </body>
 </html>
