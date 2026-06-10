@@ -173,6 +173,28 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ─── Remote Browser Relay ─────────────────────────────────────────
+  socket.on('remote-browser-request', (data) => {
+    socket.to(data.targetSocketId).emit('remote-browser-request', {
+      senderSocketId: socket.id,
+      ...data
+    });
+  });
+
+  socket.on('remote-browser-frame', (data) => {
+    socket.to(data.targetSocketId).emit('remote-browser-frame', {
+      senderSocketId: socket.id,
+      ...data
+    });
+  });
+
+  socket.on('remote-browser-url', (data) => {
+    socket.to(data.targetSocketId).emit('remote-browser-url', {
+      senderSocketId: socket.id,
+      ...data
+    });
+  });
+
   // ─── Connection Request/Accept (optional pre-WebRTC handshake) ────
   socket.on('connection-request', (data) => {
     const { targetSocketId } = data;

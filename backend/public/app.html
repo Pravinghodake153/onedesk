@@ -577,6 +577,12 @@
         </div>
         <h4>Browse Files</h4>
       </div>
+      <div class="dash-card" onclick="openFeature('browser')">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </div>
+        <h4>Remote Browser</h4>
+      </div>
       <div class="dash-card" onclick="openFeature('screen')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -646,6 +652,28 @@
 
     <div class="fb-list" id="fbList">
       <div class="fb-loading">Loading directory...</div>
+    </div>
+  </div>
+
+  <!-- ─── Remote Browser Page ──────────────────────────────────── -->
+  <div class="app" id="remoteBrowserPage" style="display: none; padding: 20px; max-width: 1000px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <button class="back-btn" style="margin: 0;" onclick="closeRemoteBrowser()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      </button>
+      <div style="flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;">
+        <button class="tb-btn" style="width: 28px; height: 28px;" onclick="rbGoBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></button>
+        <button class="tb-btn" style="width: 28px; height: 28px;" onclick="rbGoForward()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
+        <button class="tb-btn" style="width: 28px; height: 28px;" onclick="rbReload()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button>
+        <input type="text" id="rbUrlInput" placeholder="Enter URL (e.g. https://google.com)" style="flex: 1; background: transparent; border: none; color: #fff; font-size: 14px; outline: none; padding: 0 8px;" onkeydown="if(event.key === 'Enter') rbNavigate()">
+      </div>
+    </div>
+    
+    <div style="position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;" id="rbContainer">
+      <img id="rbViewport" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" />
+      <div id="rbLoading" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 10; display: none;">
+        <div class="spinner"></div>
+      </div>
     </div>
   </div>
 
@@ -767,7 +795,17 @@
         } else if (data.type === 'error') {
           alert('Error: ' + data.message);
           document.getElementById('fbList').innerHTML = `<div class="fb-loading">Error loading directory: ${data.message}</div>`;
-        }
+          // Remote Browser Signaling
+      socket.on('remote-browser-frame', (data) => {
+        document.getElementById('rbViewport').src = 'data:image/jpeg;base64,' + data.image;
+        document.getElementById('rbLoading').style.display = 'none';
+      });
+
+      socket.on('remote-browser-url', (data) => {
+        document.getElementById('rbUrlInput').value = data.url;
+        document.getElementById('rbLoading').style.display = 'none';
+      });
+    }
       });
 
       // File download chunks via signaling
@@ -887,6 +925,8 @@
         document.getElementById('viewerPage').classList.add('active');
       } else if (pageId === 'fileBrowserPage') {
         document.getElementById('fileBrowserPage').classList.add('active');
+      } else if (pageId === 'remoteBrowserPage') {
+        document.getElementById('remoteBrowserPage').style.display = 'block';
       } else {
         document.getElementById(pageId).style.display = 'block';
       }
@@ -908,6 +948,19 @@
 
     function openFeature(feature) {
       if (!targetDevice) return;
+      
+      if (feature === 'browser') {
+        showPage('remoteBrowserPage');
+        document.getElementById('rbUrlInput').value = '';
+        document.getElementById('rbViewport').src = '';
+        // Start the browser session on the host
+        socket.emit('remote-browser-request', {
+          targetSocketId: targetDevice.socketId,
+          action: 'start'
+        });
+        setupRemoteBrowserInput();
+        return;
+      }
       
       if (feature === 'files') {
         document.getElementById('fbDeviceName').textContent = targetDevice.deviceName;
@@ -1282,6 +1335,94 @@
         fileTransferActive = false;
         currentDownload = null;
       }
+    }
+
+    // ─── Remote Browser ───────────────────────────────────────────
+    let rbInputSetup = false;
+
+    function closeRemoteBrowser() {
+      showPage('dashboardPage');
+      if (socket && targetDevice) {
+        socket.emit('remote-browser-request', {
+          targetSocketId: targetDevice.socketId,
+          action: 'stop'
+        });
+      }
+    }
+
+    function rbNavigate() {
+      const url = document.getElementById('rbUrlInput').value;
+      if (!url) return;
+      document.getElementById('rbLoading').style.display = 'flex';
+      socket.emit('remote-browser-request', {
+        targetSocketId: targetDevice.socketId,
+        action: 'navigate',
+        url: url.includes('://') ? url : 'https://' + url
+      });
+    }
+
+    function rbGoBack() {
+      socket.emit('remote-browser-request', { targetSocketId: targetDevice.socketId, action: 'goBack' });
+    }
+
+    function rbGoForward() {
+      socket.emit('remote-browser-request', { targetSocketId: targetDevice.socketId, action: 'goForward' });
+    }
+
+    function rbReload() {
+      document.getElementById('rbLoading').style.display = 'flex';
+      socket.emit('remote-browser-request', { targetSocketId: targetDevice.socketId, action: 'reload' });
+    }
+
+    function setupRemoteBrowserInput() {
+      if (rbInputSetup) return;
+      rbInputSetup = true;
+
+      const container = document.getElementById('rbContainer');
+
+      container.addEventListener('mousemove', throttle((e) => {
+        const rect = container.getBoundingClientRect();
+        sendRbInput({ type: 'mousemove', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+      }, 32));
+
+      container.addEventListener('mousedown', (e) => {
+        const rect = container.getBoundingClientRect();
+        sendRbInput({ type: 'mousedown', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+      });
+
+      container.addEventListener('mouseup', (e) => {
+        const rect = container.getBoundingClientRect();
+        sendRbInput({ type: 'mouseup', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+      });
+
+      container.addEventListener('wheel', throttle((e) => {
+        e.preventDefault();
+        sendRbInput({ type: 'scroll', deltaX: e.deltaX, deltaY: e.deltaY });
+      }, 32), { passive: false });
+
+      // Keyboard
+      document.addEventListener('keydown', (e) => {
+        if (document.getElementById('remoteBrowserPage').style.display !== 'block') return;
+        if (e.target.tagName === 'INPUT') return; // Don't intercept URL bar
+        e.preventDefault();
+        sendRbInput({ type: 'keydown', key: e.key, code: e.code });
+      });
+
+      document.addEventListener('keyup', (e) => {
+        if (document.getElementById('remoteBrowserPage').style.display !== 'block') return;
+        if (e.target.tagName === 'INPUT') return;
+        e.preventDefault();
+        sendRbInput({ type: 'keyup', key: e.key, code: e.code });
+      });
+    }
+
+    function sendRbInput(eventData) {
+      if (!socket || !targetDevice) return;
+      socket.emit('remote-browser-request', {
+        targetSocketId: targetDevice.socketId,
+        action: 'input',
+        event: eventData
+      });
     }
 
     // ─── Remote Commands ────────────────────────────────────────

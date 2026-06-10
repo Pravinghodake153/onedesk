@@ -72,6 +72,11 @@ class SignalingClient extends EventEmitter {
       this.emit('file-system-request', data);
     });
 
+    // Remote Browser Request
+    this.socket.on('remote-browser-request', (data) => {
+      this.emit('remote-browser-request', data);
+    });
+
     // Connection request (someone wants to view our screen)
     this.socket.on('connection-request', (data) => {
       this.emit('connection-request', data);
@@ -114,6 +119,24 @@ class SignalingClient extends EventEmitter {
   sendFileDownloadChunk(targetSocketId, payload) {
     if (this.socket && this.socket.connected) {
       this.socket.emit('file-download-chunk', {
+        targetSocketId,
+        ...payload
+      });
+    }
+  }
+
+  sendRemoteBrowserFrame(targetSocketId, payload) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('remote-browser-frame', {
+        targetSocketId,
+        ...payload
+      });
+    }
+  }
+
+  sendRemoteBrowserUrl(targetSocketId, payload) {
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('remote-browser-url', {
         targetSocketId,
         ...payload
       });

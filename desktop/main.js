@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, screen, Notification } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -15,6 +15,9 @@ let inputSimulator = null;
 let clipboardSync = null;
 let fileTransfer = null;
 let qualityController = null;
+let remoteBrowserView = null;
+let remoteBrowserInterval = null;
+let remoteBrowserTarget = null;
 
 const DEVICE_ID = `${os.hostname()}-${process.platform}-${Date.now()}`;
 const DEVICE_NAME = os.hostname();
@@ -307,6 +310,119 @@ app.whenReady().then(() => {
         signaling.sendFileDownloadChunk(senderSocketId, { status: 'error', message: err.message });
       } else {
         signaling.sendFileSystemResponse(senderSocketId, { type: 'error', message: err.message });
+      }
+    }
+  });
+
+  // Handle Remote Browser Requests
+  signaling.on('remote-browser-request', async (data) => {
+    const { senderSocketId, action, url, event } = data;
+    
+    if (action === 'start') {
+      remoteBrowserTarget = senderSocketId;
+      if (!remoteBrowserView) {
+        remoteBrowserView = new BrowserView({
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            sandbox: true,
+            partition: 'persist:remotebrowser' // Persist cookies/cache
+          }
+        });
+        
+        // Attach to hidden window or keep unattached.
+        // Actually, BrowserView needs to be attached to a BrowserWindow to capture correctly in some electron versions.
+        // We will attach it to our hidden hostWindow.
+        if (hostWindow) {
+          hostWindow.setBrowserView(remoteBrowserView);
+          remoteBrowserView.setBounds({ x: 0, y: 0, width: 1280, height: 720 });
+        }
+
+        remoteBrowserView.webContents.on('did-navigate', (e, navigationUrl) => {
+          if (remoteBrowserTarget) {
+            signaling.sendRemoteBrowserUrl(remoteBrowserTarget, { url: navigationUrl });
+          }
+        });
+
+        remoteBrowserView.webContents.on('did-navigate-in-page', (e, navigationUrl) => {
+          if (remoteBrowserTarget) {
+            signaling.sendRemoteBrowserUrl(remoteBrowserTarget, { url: navigationUrl });
+          }
+        });
+
+        // Capture Loop
+        if (remoteBrowserInterval) clearInterval(remoteBrowserInterval);
+        remoteBrowserInterval = setInterval(async () => {
+          if (remoteBrowserView && remoteBrowserTarget) {
+            try {
+              const image = await remoteBrowserView.webContents.capturePage();
+              if (!image.isEmpty()) {
+                signaling.sendRemoteBrowserFrame(remoteBrowserTarget, {
+                  image: image.toJPEG(70).toString('base64')
+                });
+              }
+            } catch (err) {
+              // ignore capture errors
+            }
+          }
+        }, 200); // ~5 FPS
+      }
+    }
+
+    if (!remoteBrowserView) return;
+
+    if (action === 'stop') {
+      if (remoteBrowserInterval) clearInterval(remoteBrowserInterval);
+      if (hostWindow && remoteBrowserView) {
+        hostWindow.removeBrowserView(remoteBrowserView);
+      }
+      remoteBrowserView.webContents.destroy();
+      remoteBrowserView = null;
+      remoteBrowserTarget = null;
+    }
+
+    if (action === 'navigate') {
+      remoteBrowserView.webContents.loadURL(url);
+    }
+
+    if (action === 'goBack') {
+      if (remoteBrowserView.webContents.canGoBack()) remoteBrowserView.webContents.goBack();
+    }
+
+    if (action === 'goForward') {
+      if (remoteBrowserView.webContents.canGoForward()) remoteBrowserView.webContents.goForward();
+    }
+
+    if (action === 'reload') {
+      remoteBrowserView.webContents.reload();
+    }
+
+    if (action === 'input' && event) {
+      const wc = remoteBrowserView.webContents;
+      const { width, height } = remoteBrowserView.getBounds();
+      const x = Math.floor(event.x * width);
+      const y = Math.floor(event.y * height);
+
+      switch (event.type) {
+        case 'mousemove':
+          wc.sendInputEvent({ type: 'mouseMove', x, y });
+          break;
+        case 'mousedown':
+          wc.sendInputEvent({ type: 'mouseDown', button: 'left', x, y, clickCount: 1 });
+          break;
+        case 'mouseup':
+          wc.sendInputEvent({ type: 'mouseUp', button: 'left', x, y, clickCount: 1 });
+          break;
+        case 'scroll':
+          wc.sendInputEvent({ type: 'mouseWheel', x: width/2, y: height/2, deltaX: event.deltaX, deltaY: event.deltaY });
+          break;
+        case 'keydown':
+          wc.sendInputEvent({ type: 'keyDown', keyCode: event.key });
+          wc.sendInputEvent({ type: 'char', keyCode: event.key });
+          break;
+        case 'keyup':
+          wc.sendInputEvent({ type: 'keyUp', keyCode: event.key });
+          break;
       }
     }
   });
