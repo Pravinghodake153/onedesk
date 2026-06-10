@@ -413,11 +413,10 @@ app.whenReady().then(() => {
 
     if (action === 'input' && event) {
       const wc = remoteBrowserView.webContents;
-      const bounds = remoteBrowserView.getBounds();
-      const width = bounds.width;
-      const height = bounds.height;
-      const x = Math.floor(event.x * width);
-      const y = Math.floor(event.y * height);
+      const width = 1280;
+      const height = 720;
+      const x = event.x !== undefined ? Math.floor(event.x * width) : width / 2;
+      const y = event.y !== undefined ? Math.floor(event.y * height) : height / 2;
 
       switch (event.type) {
         case 'mousemove':
@@ -430,7 +429,7 @@ app.whenReady().then(() => {
           wc.sendInputEvent({ type: 'mouseUp', button: 'left', x, y, clickCount: 1 });
           break;
         case 'scroll':
-          wc.sendInputEvent({ type: 'mouseWheel', x: width/2, y: height/2, deltaX: event.deltaX, deltaY: event.deltaY });
+          wc.sendInputEvent({ type: 'mouseWheel', x, y, deltaX: event.deltaX, deltaY: event.deltaY });
           break;
         case 'keydown':
           wc.sendInputEvent({ type: 'keyDown', keyCode: event.key });
