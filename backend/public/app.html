@@ -377,6 +377,28 @@
       color: var(--text-muted);
       font-family: 'SF Mono', monospace;
     }
+    .fb-item .fb-download-btn {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(102,126,234,0.1);
+      color: var(--accent);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+      opacity: 0;
+    }
+    .fb-item:hover .fb-download-btn {
+      opacity: 1;
+    }
+    .fb-item .fb-download-btn:hover {
+      background: rgba(102,126,234,0.25);
+      transform: scale(1.1);
+    }
     .fb-loading {
       padding: 40px;
       text-align: center;
@@ -1280,15 +1302,25 @@
         return a.name.localeCompare(b.name);
       });
 
-      container.innerHTML = items.map(item => `
-        <div class="fb-item" onclick="${item.isDirectory ? `requestDirectory('${item.path.replace(/\\/g, '\\\\')}')` : `downloadFile('${item.path.replace(/\\/g, '\\\\')}', '${item.name}')`}">
-          <div class="icon">
-            ${item.isDirectory ? '📁' : '📄'}
+      container.innerHTML = items.map(item => {
+        const escapedPath = item.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const folderSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+        const fileSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+        const downloadSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+
+        const downloadBtn = item.isDirectory
+          ? `<button class="fb-download-btn" title="Download as ZIP" onclick="event.stopPropagation(); downloadFolder('${escapedPath}', '${item.name.replace(/'/g, "\\'")}')"> ${downloadSvg}</button>`
+          : '';
+
+        return `
+          <div class="fb-item" onclick="${item.isDirectory ? `requestDirectory('${escapedPath}')` : `downloadFile('${escapedPath}', '${item.name.replace(/'/g, "\\'")}')`}">
+            <div class="icon">${item.isDirectory ? folderSvg : fileSvg}</div>
+            <div class="name" title="${item.name}">${item.name}</div>
+            <div class="meta">${item.isDirectory ? '' : formatBytes(item.size)}</div>
+            ${downloadBtn}
           </div>
-          <div class="name" title="${item.name}">${item.name}</div>
-          <div class="meta">${item.isDirectory ? '' : formatBytes(item.size)}</div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     // ─── File Downloading ─────────────────────────────────────────
@@ -1316,6 +1348,31 @@
         targetSocketId: targetDevice.socketId,
         action: 'download_file',
         path: filePath
+      });
+    }
+
+    function downloadFolder(folderPath, folderName) {
+      if (fileTransferActive) {
+        alert('A file transfer is already in progress.');
+        return;
+      }
+
+      const confirmDownload = confirm(`Download folder "${folderName}" as ZIP?`);
+      if (!confirmDownload) return;
+
+      fileTransferActive = true;
+      currentDownload = {
+        name: folderName + '.zip',
+        chunks: [],
+        receivedSize: 0
+      };
+
+      showClipboardToast(`Zipping folder: ${folderName}...`);
+
+      socket.emit('file-system-request', {
+        targetSocketId: targetDevice.socketId,
+        action: 'download_directory',
+        path: folderPath
       });
     }
 

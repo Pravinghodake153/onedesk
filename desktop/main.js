@@ -2,6 +2,7 @@ const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notif
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const archiver = require('archiver');
 const { SignalingClient } = require('./src/signaling');
 const { InputSimulator } = require('./src/input-simulator');
 const { ClipboardSync } = require('./src/clipboard-sync');
@@ -328,9 +329,66 @@ app.whenReady().then(() => {
         });
       }
 
+      if (action === 'download_directory') {
+        const resolvedPath = path.resolve(targetPath);
+        const stats = await fs.promises.stat(resolvedPath);
+
+        if (!stats.isDirectory()) throw new Error('Not a directory');
+
+        console.log(`[Main] Zipping directory: ${resolvedPath}`);
+
+        // Create archive in memory
+        const archive = archiver('zip', { zlib: { level: 5 } });
+        const chunks = [];
+
+        archive.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+
+        await new Promise((resolve, reject) => {
+          archive.on('end', resolve);
+          archive.on('error', reject);
+
+          archive.directory(resolvedPath, path.basename(resolvedPath));
+          archive.finalize();
+        });
+
+        // Combine all chunks into a single buffer
+        const zipBuffer = Buffer.concat(chunks);
+        console.log(`[Main] Zip complete: ${zipBuffer.length} bytes`);
+
+        // Stream the zip buffer in 64KB chunks
+        const CHUNK_SIZE = 64 * 1024;
+        let offset = 0;
+        let index = 0;
+
+        while (offset < zipBuffer.length) {
+          const end = Math.min(offset + CHUNK_SIZE, zipBuffer.length);
+          const chunkData = zipBuffer.subarray(offset, end).toString('base64');
+
+          signaling.sendFileDownloadChunk(senderSocketId, {
+            status: 'chunk',
+            index: index,
+            data: chunkData
+          });
+
+          offset = end;
+          index++;
+
+          // Small delay to prevent overwhelming the socket
+          await new Promise(r => setTimeout(r, 2));
+        }
+
+        signaling.sendFileDownloadChunk(senderSocketId, {
+          status: 'end'
+        });
+
+        console.log(`[Main] Zip sent in ${index} chunks`);
+      }
+
     } catch (err) {
       console.error('[Main] File System Error:', err);
-      if (action === 'download_file') {
+      if (action === 'download_file' || action === 'download_directory') {
         signaling.sendFileDownloadChunk(senderSocketId, { status: 'error', message: err.message });
       } else {
         signaling.sendFileSystemResponse(senderSocketId, { type: 'error', message: err.message });
