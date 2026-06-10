@@ -820,6 +820,18 @@
       socket.on('file-download-chunk', (data) => {
         handleFileChunk(data);
       });
+
+      socket.on('host-cookies-response', (data) => {
+        if (data.cookies && window._pendingNativeUrl) {
+          showToast(`Injected ${data.cookies.length} cookies. Opening Incognito window...`);
+          window.postMessage({
+            type: 'ONEDESK_OPEN_NATIVE_BROWSER',
+            url: window._pendingNativeUrl,
+            cookies: data.cookies
+          }, '*');
+          window._pendingNativeUrl = null;
+        }
+      });
     }
 
     // ─── UI Updates ─────────────────────────────────────────────
@@ -958,6 +970,23 @@
       if (!targetDevice) return;
       
       if (feature === 'browser') {
+        if (window.__ONEDESK_VIEWER_READY) {
+          const url = prompt('Native Viewer Extension detected! Enter URL to browse natively in Incognito:', 'https://google.com');
+          if (!url) return;
+          
+          let finalUrl = url;
+          if (!url.includes('://')) {
+            finalUrl = 'https://' + url;
+          }
+          
+          window._pendingNativeUrl = finalUrl;
+          showToast('Fetching session cookies from host...');
+          socket.emit('request-host-cookies', {
+            targetSocketId: targetDevice.socketId
+          });
+          return;
+        }
+
         showPage('remoteBrowserPage');
         document.getElementById('rbUrlInput').value = '';
         document.getElementById('rbViewport').src = '';

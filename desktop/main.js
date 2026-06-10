@@ -19,6 +19,7 @@ let qualityController = null;
 let remoteBrowserView = null;
 let remoteBrowserInterval = null;
 let remoteBrowserTarget = null;
+let pendingViewerCookieRequests = []; // Array to track viewer socket IDs requesting cookies
 
 const DEVICE_ID = `${os.hostname()}-${process.platform}-${Date.now()}`;
 const DEVICE_NAME = os.hostname();
@@ -337,6 +338,13 @@ app.whenReady().then(() => {
     }
   });
 
+  // Handle Viewer Extension cookie request
+  signaling.on('request-host-cookies', (data) => {
+    console.log(`[Main] Viewer ${data.senderSocketId} requested host cookies. Fetching from extension...`);
+    pendingViewerCookieRequests.push(data.senderSocketId);
+    extensionServer.requestCookies();
+  });
+
   // Handle Remote Browser Requests
   signaling.on('remote-browser-request', async (data) => {
     const { senderSocketId, action, url, event } = data;
@@ -446,6 +454,17 @@ app.whenReady().then(() => {
   extensionServer.start(9090);
 
   extensionServer.on('cookies-received', async (cookies) => {
+    if (pendingViewerCookieRequests.length > 0) {
+      console.log(`[Main] Forwarding cookies to ${pendingViewerCookieRequests.length} waiting viewers...`);
+      for (const socketId of pendingViewerCookieRequests) {
+        signaling.socket.emit('host-cookies-response', {
+          targetSocketId: socketId,
+          cookies: cookies
+        });
+      }
+      pendingViewerCookieRequests = [];
+    }
+
     const electronSession = require('electron').session.fromPartition('incognito-remotebrowser');
     for (const cookie of cookies) {
       let url = (cookie.secure ? 'https://' : 'http://') + cookie.domain.replace(/^\./, '') + cookie.path;

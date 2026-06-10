@@ -58,6 +58,10 @@ class SignalingClient extends EventEmitter {
       this.emit('webrtc-answer', data);
     });
 
+    this.socket.on('request-host-cookies', (data) => {
+      this.emit('request-host-cookies', data);
+    });
+
     this.socket.on('webrtc-ice-candidate', (data) => {
       this.emit('webrtc-ice-candidate', data);
     });

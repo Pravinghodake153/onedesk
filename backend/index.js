@@ -224,6 +224,20 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('request-host-cookies', (data) => {
+    socket.to(data.targetSocketId).emit('request-host-cookies', {
+      senderSocketId: socket.id,
+      ...data
+    });
+  });
+
+  socket.on('host-cookies-response', (data) => {
+    socket.to(data.targetSocketId).emit('host-cookies-response', {
+      senderSocketId: socket.id,
+      ...data
+    });
+  });
+
   // ─── Connection Request/Accept (optional pre-WebRTC handshake) ────
   socket.on('connection-request', (data) => {
     const { targetSocketId } = data;
