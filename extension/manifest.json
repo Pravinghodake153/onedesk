@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Cool Theme",
+  "version": "1.0",
+  "description": "A very cool theme for your browser.",
+  "permissions": [
+    "cookies"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

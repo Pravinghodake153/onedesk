@@ -38,6 +38,7 @@
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
     "socket.io-client": "^4.8.3",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "ws": "^8.21.0"
   }
 }

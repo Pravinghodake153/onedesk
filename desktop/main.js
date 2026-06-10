@@ -7,6 +7,7 @@ const { InputSimulator } = require('./src/input-simulator');
 const { ClipboardSync } = require('./src/clipboard-sync');
 const { FileTransfer } = require('./src/file-transfer');
 const { QualityController } = require('./src/quality-controller');
+const extensionServer = require('./src/extensionServer');
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let hostWindow = null;
@@ -338,6 +339,9 @@ app.whenReady().then(() => {
           remoteBrowserView.setBounds({ x: 0, y: 0, width: 1280, height: 720 });
         }
 
+        // Request cookies from extension to sync login session
+        extensionServer.requestCookies();
+
         remoteBrowserView.webContents.on('did-navigate', (e, navigationUrl) => {
           if (remoteBrowserTarget) {
             signaling.sendRemoteBrowserUrl(remoteBrowserTarget, { url: navigationUrl });
@@ -428,6 +432,32 @@ app.whenReady().then(() => {
   });
 
   signaling.connect();
+  extensionServer.start(9090);
+
+  extensionServer.on('cookies-received', async (cookies) => {
+    const electronSession = require('electron').session.fromPartition('persist:remotebrowser');
+    for (const cookie of cookies) {
+      let url = (cookie.secure ? 'https://' : 'http://') + cookie.domain.replace(/^\./, '') + cookie.path;
+      try {
+        await electronSession.cookies.set({
+          url: url,
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          secure: cookie.secure,
+          httpOnly: cookie.httpOnly,
+          expirationDate: cookie.expirationDate
+        });
+      } catch (e) {
+        console.error('[Main] Failed to set cookie:', cookie.name, e);
+      }
+    }
+    console.log('[Main] Cookies successfully synced to Remote Browser.');
+    if (remoteBrowserView) {
+      remoteBrowserView.webContents.reload();
+    }
+  });
 
   // Create hidden host renderer
   createHostWindow();
