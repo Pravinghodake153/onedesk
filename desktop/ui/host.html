@@ -15,6 +15,7 @@
     const peers = new Map();     // socketId -> { pc, inputChannel, clipboardChannel, fileChannel }
     let screenStream = null;
     let micStream = null;
+    let camStream = null;
 
     // ─── Screen Capture ─────────────────────────────────────────────
     async function getScreenStream() {
@@ -84,7 +85,9 @@
         try {
           const granted = await window.onedesk.requestMediaAccess('camera');
           if (granted) {
-            const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (!camStream) {
+              camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            }
             camStream.getTracks().forEach(track => pc.addTrack(track, camStream));
             hasTracks = true;
             console.log('[Host] Camera capture started');
@@ -246,6 +249,10 @@
         if (micStream) {
           micStream.getTracks().forEach(t => t.stop());
           micStream = null;
+        }
+        if (camStream) {
+          camStream.getTracks().forEach(t => t.stop());
+          camStream = null;
         }
         console.log('[Host] No active connections — capture stopped (saving resources)');
       }
