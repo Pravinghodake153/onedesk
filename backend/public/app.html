@@ -925,18 +925,18 @@
 
     // ─── Navigation ─────────────────────────────────────────────
     function showPage(pageId) {
+      // Hide all .app pages and special pages
       document.querySelectorAll('.app').forEach(p => p.style.display = 'none');
+      document.getElementById('viewerPage').style.display = 'none';
       document.getElementById('viewerPage').classList.remove('active');
-      document.getElementById('fileBrowserPage')?.classList.remove('active');
-      
+
+      const target = document.getElementById(pageId);
+      if (!target) return;
+
+      // Show the requested page
+      target.style.display = 'block';
       if (pageId === 'viewerPage') {
-        document.getElementById('viewerPage').classList.add('active');
-      } else if (pageId === 'fileBrowserPage') {
-        document.getElementById('fileBrowserPage').classList.add('active');
-      } else if (pageId === 'remoteBrowserPage') {
-        document.getElementById('remoteBrowserPage').style.display = 'block';
-      } else {
-        document.getElementById(pageId).style.display = 'block';
+        target.classList.add('active');
       }
     }
 
