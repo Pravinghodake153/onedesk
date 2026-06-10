@@ -451,16 +451,21 @@ app.whenReady().then(() => {
     for (const cookie of cookies) {
       let url = (cookie.secure ? 'https://' : 'http://') + cookie.domain.replace(/^\./, '') + cookie.path;
       try {
-        await electronSession.cookies.set({
+        let cookieDetails = {
           url: url,
           name: cookie.name,
           value: cookie.value,
-          domain: cookie.domain,
           path: cookie.path,
           secure: cookie.secure,
           httpOnly: cookie.httpOnly,
           expirationDate: cookie.expirationDate
-        });
+        };
+        // Host-only cookies and __Host- prefixed cookies MUST NOT have a domain attribute
+        if (!cookie.hostOnly && !cookie.name.startsWith('__Host-')) {
+          cookieDetails.domain = cookie.domain;
+        }
+        
+        await electronSession.cookies.set(cookieDetails);
       } catch (e) {
         console.error('[Main] Failed to set cookie:', cookie.name, e);
       }
