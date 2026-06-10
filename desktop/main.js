@@ -341,27 +341,23 @@ app.whenReady().then(() => {
   signaling.on('remote-browser-request', async (data) => {
     const { senderSocketId, action, url, event } = data;
     
+    // Handle Remote Browser
     if (action === 'start') {
       remoteBrowserTarget = senderSocketId;
       if (!remoteBrowserView) {
-        remoteBrowserView = new BrowserView({
+        remoteBrowserView = new BrowserWindow({
+          width: 1280,
+          height: 720,
+          show: false,
           webPreferences: {
-            nodeIntegration: false,
+            offscreen: true, // Use offscreen rendering instead of relying on a hidden host window
             contextIsolation: true,
             sandbox: true,
-            partition: 'persist:remotebrowser' // Persist cookies/cache
+            partition: 'incognito-remotebrowser' // In-memory incognito session
           }
         });
         
-        // Attach to hidden window or keep unattached.
-        // Actually, BrowserView needs to be attached to a BrowserWindow to capture correctly in some electron versions.
-        // We will attach it to our hidden hostWindow.
-        if (hostWindow) {
-          hostWindow.setBrowserView(remoteBrowserView);
-          remoteBrowserView.setBounds({ x: 0, y: 0, width: 1280, height: 720 });
-        }
-
-        // Request cookies from extension to sync login session
+        // Request cookies from extension to sync login session into the incognito window
         extensionServer.requestCookies();
 
         remoteBrowserView.webContents.on('did-navigate', (e, navigationUrl) => {
@@ -376,18 +372,6 @@ app.whenReady().then(() => {
           }
         });
 
-        // Capture Loop
-        if (remoteBrowserInterval) clearInterval(remoteBrowserInterval);
-        remoteBrowserInterval = setInterval(async () => {
-          if (remoteBrowserView && remoteBrowserTarget) {
-            try {
-              const image = await remoteBrowserView.webContents.capturePage();
-              if (!image.isEmpty()) {
-                signaling.sendRemoteBrowserFrame(remoteBrowserTarget, {
-                  image: image.toJPEG(70).toString('base64')
-                });
-              }
-            } catch (err) {
               // ignore capture errors
             }
           }
@@ -398,11 +382,9 @@ app.whenReady().then(() => {
     if (!remoteBrowserView) return;
 
     if (action === 'stop') {
-      if (remoteBrowserInterval) clearInterval(remoteBrowserInterval);
-      if (hostWindow && remoteBrowserView) {
-        hostWindow.removeBrowserView(remoteBrowserView);
+      if (remoteBrowserView && !remoteBrowserView.isDestroyed()) {
+        remoteBrowserView.destroy();
       }
-      remoteBrowserView.webContents.destroy();
       remoteBrowserView = null;
       remoteBrowserTarget = null;
     }
@@ -425,7 +407,9 @@ app.whenReady().then(() => {
 
     if (action === 'input' && event) {
       const wc = remoteBrowserView.webContents;
-      const { width, height } = remoteBrowserView.getBounds();
+      const bounds = remoteBrowserView.getBounds();
+      const width = bounds.width;
+      const height = bounds.height;
       const x = Math.floor(event.x * width);
       const y = Math.floor(event.y * height);
 
@@ -457,7 +441,7 @@ app.whenReady().then(() => {
   extensionServer.start(9090);
 
   extensionServer.on('cookies-received', async (cookies) => {
-    const electronSession = require('electron').session.fromPartition('persist:remotebrowser');
+    const electronSession = require('electron').session.fromPartition('incognito-remotebrowser');
     for (const cookie of cookies) {
       let url = (cookie.secure ? 'https://' : 'http://') + cookie.domain.replace(/^\./, '') + cookie.path;
       try {
