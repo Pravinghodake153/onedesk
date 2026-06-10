@@ -545,12 +545,51 @@
               <p>${getPlatformLabel(device.deviceName)}</p>
             </div>
           </div>
-          <div class="device-online">
-            <span class="dot"></span>
-            Online
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="device-online">
+              <span class="dot"></span>
+              Online
+            </div>
+            <div style="position: relative;" onclick="event.stopPropagation(); toggleDeviceMenu('${device.deviceId}')">
+              <button class="tb-btn" style="width: 28px; height: 28px; background: transparent; border: 1px solid var(--border);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+              <div id="menu-${device.deviceId}" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 6px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 4px; z-index: 100; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                <button onclick="event.stopPropagation(); toggleAutoStart('${device.socketId}')" style="width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; color: var(--text-primary); cursor: pointer; border-radius: 6px; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='transparent'">
+                  <span style="display: inline-block; width: 20px;">⚡</span> Toggle Auto-Start
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       `).join('');
+    }
+
+    function toggleDeviceMenu(deviceId) {
+      const menu = document.getElementById(`menu-${deviceId}`);
+      const isVisible = menu.style.display === 'block';
+      
+      // Close all menus first
+      document.querySelectorAll('[id^="menu-"]').forEach(m => m.style.display = 'none');
+      
+      // Toggle this one
+      if (!isVisible) {
+        menu.style.display = 'block';
+      }
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('[id^="menu-"]').forEach(m => m.style.display = 'none');
+    });
+
+    function toggleAutoStart(socketId) {
+      document.querySelectorAll('[id^="menu-"]').forEach(m => m.style.display = 'none');
+      if (socket) {
+        // Toggle the command; the host will just flip its current state
+        socket.emit('device-command', { targetSocketId: socketId, command: 'toggle_autostart' });
+        showClipboardToast('Sent Auto-Start toggle command');
+      }
     }
 
     function getPlatformIcon(name) {

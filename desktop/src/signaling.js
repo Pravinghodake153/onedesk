@@ -62,6 +62,11 @@ class SignalingClient extends EventEmitter {
       this.emit('webrtc-ice-candidate', data);
     });
 
+    // Device commands (e.g. toggle auto-start)
+    this.socket.on('device-command', (data) => {
+      this.emit('device-command', data);
+    });
+
     // Connection request (someone wants to view our screen)
     this.socket.on('connection-request', (data) => {
       this.emit('connection-request', data);

@@ -192,6 +192,32 @@ app.whenReady().then(() => {
     }
   });
 
+  // Handle remote commands from Web App
+  signaling.on('device-command', (data) => {
+    if (data.command === 'toggle_autostart') {
+      const currentSettings = app.getLoginItemSettings();
+      const newSetting = !currentSettings.openAtLogin;
+      
+      app.setLoginItemSettings({
+        openAtLogin: newSetting,
+        path: process.execPath,
+        args: [
+          '--processStart', `"${process.execPath}"`,
+          '--process-start-args', `"--hidden"`
+        ]
+      });
+      
+      console.log(`[Main] Auto-start toggled to: ${newSetting}`);
+      
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'OneDesk Settings',
+          body: `Auto-Start on boot has been turned ${newSetting ? 'ON' : 'OFF'}.`
+        }).show();
+      }
+    }
+  });
+
   signaling.connect();
 
   // Create hidden host renderer
