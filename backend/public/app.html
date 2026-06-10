@@ -803,7 +803,7 @@
 
       socket.on('host-cookies-response', (data) => {
         if (data.cookies && window._pendingNativeUrl) {
-          showToast(`Injected ${data.cookies.length} cookies. Opening Incognito window...`);
+          showClipboardToast(`Injected ${data.cookies.length} cookies. Opening Incognito window...`);
           window.postMessage({
             type: 'ONEDESK_OPEN_NATIVE_BROWSER',
             url: window._pendingNativeUrl,
@@ -959,7 +959,7 @@
         }
         
         window._pendingNativeUrl = finalUrl;
-        showToast('Fetching live session cookies from host...');
+        showClipboardToast('Fetching live session cookies from host...');
         socket.emit('request-host-cookies', {
           targetSocketId: targetDevice.socketId
         });
