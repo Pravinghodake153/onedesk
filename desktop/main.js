@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification, systemPreferences } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification, systemPreferences, session } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -156,6 +156,14 @@ function cleanup() {
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Automatically approve media access inside host renderer session
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    return true;
+  });
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(true);
+  });
+
   // Setup IPC
   setupIPC();
 

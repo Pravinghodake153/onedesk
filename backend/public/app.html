@@ -423,6 +423,82 @@
       background: #000;
     }
 
+    /* Cursor Mode & Dimension Indicator */
+    .cursor-mode-bar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cursor-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffffff;
+      background: rgba(18, 18, 28, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .cursor-mode-pill:hover {
+      background: rgba(30, 30, 48, 0.95);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+    .cursor-mode-pill.remote .mode-dot {
+      background: #30d158;
+      box-shadow: 0 0 10px #30d158;
+    }
+    .cursor-mode-pill.local {
+      border-color: rgba(255, 159, 10, 0.5);
+    }
+    .cursor-mode-pill.local .mode-dot {
+      background: #ff9f0a;
+      box-shadow: 0 0 10px #ff9f0a;
+    }
+    .mode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .mode-shortcut {
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: 0.5px;
+    }
+    .dim-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      background: rgba(18, 18, 28, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      user-select: none;
+    }
+
     /* Viewer connecting overlay */
     .viewer-connecting {
       position: absolute;
@@ -696,6 +772,19 @@
     <div id="playOverlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; color: white;">
       <h2 style="margin-bottom: 20px;">Video Paused</h2>
       <button onclick="manualPlay()" style="padding: 15px 30px; font-size: 18px; border-radius: 8px; background: #0A84FF; border: none; color: white; cursor: pointer;">Tap to Play Video</button>
+    </div>
+
+    <!-- Cursor Mode Switcher & Dimension Monitor (Top-Left) -->
+    <div class="cursor-mode-bar" id="cursorModeBar">
+      <button id="cursorModeBtn" class="cursor-mode-pill remote" onclick="toggleCursorMode()" title="Toggle cursor between Remote Desktop and Current Desktop (Keyboard Shortcut: ESC)">
+        <span class="mode-dot"></span>
+        <span id="cursorModeLabel">Remote Cursor</span>
+        <span class="mode-shortcut">ESC</span>
+      </button>
+      <div id="dimBadge" class="dim-pill" title="Remote Desktop Stream Dimensions & Aspect Ratio">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span id="dimText">Calibrating...</span>
+      </div>
     </div>
 
     <!-- Minimal Overlay controls -->
@@ -1002,6 +1091,102 @@
       }
     }
 
+    // ─── Cursor Mode & Dimension Projection ─────────────────────
+    let cursorMode = 'remote'; // 'remote' or 'local'
+    let remoteStream = null;
+
+    function getNormalizedVideoCoordinates(clientX, clientY, video) {
+      const rect = video.getBoundingClientRect();
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+
+      if (!videoWidth || !videoHeight || rect.width === 0 || rect.height === 0) {
+        return {
+          x: Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1))),
+          y: Math.max(0, Math.min(1, (clientY - rect.top) / (rect.height || 1))),
+          inside: true
+        };
+      }
+
+      const containerAspect = rect.width / rect.height;
+      const videoAspect = videoWidth / videoHeight;
+
+      let renderedWidth, renderedHeight, offsetX, offsetY;
+
+      if (containerAspect > videoAspect) {
+        // Pillarboxed: Black bars on left and right
+        renderedHeight = rect.height;
+        renderedWidth = rect.height * videoAspect;
+        offsetX = (rect.width - renderedWidth) / 2;
+        offsetY = 0;
+      } else {
+        // Letterboxed: Black bars on top and bottom
+        renderedWidth = rect.width;
+        renderedHeight = rect.width / videoAspect;
+        offsetX = 0;
+        offsetY = (rect.height - renderedHeight) / 2;
+      }
+
+      const localX = clientX - rect.left - offsetX;
+      const localY = clientY - rect.top - offsetY;
+
+      // Check whether mouse pointer is within the actual rendered screen area
+      const inside = (localX >= 0 && localX <= renderedWidth && localY >= 0 && localY <= renderedHeight);
+
+      const normX = Math.max(0, Math.min(1, localX / renderedWidth));
+      const normY = Math.max(0, Math.min(1, localY / renderedHeight));
+
+      return {
+        x: normX,
+        y: normY,
+        inside,
+        videoWidth,
+        videoHeight,
+        renderedWidth: Math.round(renderedWidth),
+        renderedHeight: Math.round(renderedHeight)
+      };
+    }
+
+    function updateDimensionBadge() {
+      const video = document.getElementById('remoteVideo');
+      const badge = document.getElementById('dimText');
+      if (!badge || !video) return;
+
+      if (video.videoWidth && video.videoHeight) {
+        const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+        const div = gcd(video.videoWidth, video.videoHeight);
+        const aspect = `${video.videoWidth / div}:${video.videoHeight / div}`;
+        badge.textContent = `${video.videoWidth}×${video.videoHeight} (${aspect})`;
+      } else {
+        badge.textContent = 'Auto Dimensions';
+      }
+    }
+
+    function setCursorMode(mode) {
+      cursorMode = mode;
+      const btn = document.getElementById('cursorModeBtn');
+      const label = document.getElementById('cursorModeLabel');
+      const video = document.getElementById('remoteVideo');
+
+      if (!btn || !label || !video) return;
+
+      if (cursorMode === 'remote') {
+        btn.className = 'cursor-mode-pill remote';
+        label.textContent = 'Remote Cursor';
+        video.style.cursor = (currentFeature === 'camera' || currentFeature === 'mic') ? 'default' : 'crosshair';
+        showClipboardToast('Remote Cursor Mode — Controlling remote desktop (Press ESC to switch)');
+      } else {
+        btn.className = 'cursor-mode-pill local';
+        label.textContent = 'Current Desktop';
+        video.style.cursor = 'default';
+        showClipboardToast('Current Desktop Cursor — Local control active (Press ESC to switch)');
+      }
+    }
+
+    function toggleCursorMode() {
+      setCursorMode(cursorMode === 'remote' ? 'local' : 'remote');
+    }
+
     // ─── WebRTC Connection ──────────────────────────────────────
     async function connectToDevice(socketId, feature = 'screen') {
       targetDevice = devices.find(d => d.socketId === socketId);
@@ -1014,13 +1199,24 @@
       showPage('viewerPage');
       document.getElementById('viewerTargetName').textContent = targetDevice.deviceName;
 
-      // For camera/mic, hide input-related UI and set passive cursor
-      const viewerPage = document.getElementById('viewerPage');
       const remoteVideo = document.getElementById('remoteVideo');
+      const cursorModeBar = document.getElementById('cursorModeBar');
+
+      // Initialize unified media stream
+      remoteStream = new MediaStream();
+      remoteVideo.srcObject = remoteStream;
+
+      remoteVideo.removeEventListener('loadedmetadata', updateDimensionBadge);
+      remoteVideo.addEventListener('loadedmetadata', updateDimensionBadge);
+      window.removeEventListener('resize', updateDimensionBadge);
+      window.addEventListener('resize', updateDimensionBadge);
+
       if (feature === 'camera' || feature === 'mic') {
+        if (cursorModeBar) cursorModeBar.style.display = 'none';
         remoteVideo.style.cursor = 'default';
       } else {
-        remoteVideo.style.cursor = 'none';
+        if (cursorModeBar) cursorModeBar.style.display = 'flex';
+        setCursorMode('remote');
       }
 
       // Create peer connection
@@ -1028,19 +1224,21 @@
 
       peerConnection.ontrack = (event) => {
         console.log('[Web] Track received:', event.track.kind);
-        document.getElementById('viewerConnectingText').textContent = 'Video track received, waiting for stream...';
-        const video = document.getElementById('remoteVideo');
-        if (event.streams && event.streams[0]) {
-          video.srcObject = event.streams[0];
-          // Screen share starts muted to avoid autoplay block;
-          // Camera/Mic start unmuted so you can actually hear/see
-          video.muted = (currentFeature === 'screen' || currentFeature === 'av');
-          video.play().catch(e => {
-            console.error('[Web] Play failed:', e);
-            document.getElementById('playOverlay').style.display = 'flex';
-          });
+        if (remoteStream) {
+          remoteStream.addTrack(event.track);
         }
+
+        document.getElementById('viewerConnectingText').textContent = 'Stream connected, rendering...';
+        
+        // Mute screen and camera to satisfy browser autoplay policy
+        remoteVideo.muted = (currentFeature === 'screen' || currentFeature === 'camera');
+        remoteVideo.play().catch(e => {
+          console.error('[Web] Play failed:', e);
+          document.getElementById('playOverlay').style.display = 'flex';
+        });
+
         document.getElementById('viewerConnecting').classList.add('hidden');
+        updateDimensionBadge();
       };
 
       peerConnection.onicecandidate = (event) => {
@@ -1131,33 +1329,59 @@
 
       video.addEventListener('mousemove', throttle((e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousemove', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+        if (cursorMode !== 'remote') return;
+
+        const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
+        if (!coords.inside) return; // Don't move mouse into letterbox/pillarbox margins
+
+        sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
       }, 16));
 
       video.addEventListener('mousedown', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousedown', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, button: e.button });
+        if (cursorMode !== 'remote') return;
+
+        const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
+        if (!coords.inside) return;
+
+        sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: e.button });
       });
 
       video.addEventListener('mouseup', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mouseup', x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, button: e.button });
+        if (cursorMode !== 'remote') return;
+
+        const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
+        sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: e.button });
       });
 
       video.addEventListener('wheel', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return;
         e.preventDefault();
-        sendInput({ type: 'scroll', deltaX: e.deltaX, deltaY: e.deltaY });
+        sendInput({ type: 'scroll', deltaX: deltaY = e.deltaX, deltaY: e.deltaY });
       }, { passive: false });
 
-      video.addEventListener('contextmenu', (e) => e.preventDefault());
+      video.addEventListener('contextmenu', (e) => {
+        if (cursorMode === 'remote') {
+          e.preventDefault();
+        }
+      });
 
       document.addEventListener('keydown', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (!document.getElementById('viewerPage').classList.contains('active')) return;
+
+        // Pressing ESC toggles between Remote Cursor and Current Desktop Cursor!
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCursorMode();
+          return;
+        }
+
+        if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return; // In local cursor mode, let user use their own local shortcuts!
+
         e.preventDefault();
         sendInput({
           type: 'keydown', key: e.key, code: e.code,
@@ -1167,8 +1391,11 @@
       });
 
       document.addEventListener('keyup', (e) => {
-        if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (!document.getElementById('viewerPage').classList.contains('active')) return;
+        if (e.key === 'Escape') return; // Handled in keydown
+        if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return;
+
         e.preventDefault();
         sendInput({ type: 'keyup', key: e.key, code: e.code });
       });
@@ -1184,47 +1411,43 @@
         e.preventDefault();
         touchCount = e.touches.length;
         const touch = e.touches[0];
-        const rect = video.getBoundingClientRect();
+        const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
         
-        touchStartPos = {
-          x: (touch.clientX - rect.left) / rect.width,
-          y: (touch.clientY - rect.top) / rect.height
-        };
+        touchStartPos = { x: coords.x, y: coords.y };
         touchStartTime = Date.now();
         isDragging = false;
 
-        // Move cursor to touch position instantly
-        sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
+        if (cursorMode === 'remote') {
+          sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
+        }
       }, { passive: false });
 
       video.addEventListener('touchmove', throttle((e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return;
         e.preventDefault();
         isDragging = true;
         const touch = e.touches[0];
-        const rect = video.getBoundingClientRect();
-        sendInput({ type: 'mousemove', x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height });
+        const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+        sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
       }, 16), { passive: false });
 
       video.addEventListener('touchend', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return;
         e.preventDefault();
         
         const touchDuration = Date.now() - touchStartTime;
-        
-        // If it was a quick tap without much dragging, it's a click
         if (!isDragging && touchDuration < 300) {
-          // If 1 finger tap = left click (0), if 2 finger tap = right click (2)
           const button = (touchCount > 1) ? 2 : 0;
           sendInput({ type: 'mousedown', x: touchStartPos.x, y: touchStartPos.y, button });
-          // Small delay then release
           setTimeout(() => {
             sendInput({ type: 'mouseup', x: touchStartPos.x, y: touchStartPos.y, button });
           }, 50);
         }
-        
         touchCount = e.touches.length;
       });
+
 
       // Virtual Keyboard Capture
       const virtualInput = document.getElementById('virtualKeyboardInput');

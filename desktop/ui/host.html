@@ -99,8 +99,8 @@
         }
       }
 
-      // Microphone Capture
-      if (feature === 'mic' || feature === 'camera' || feature === 'av' || feature === 'screen') {
+      // Microphone Capture (only for mic or av features)
+      if (feature === 'mic' || feature === 'av') {
         try {
           const granted = await window.onedesk.requestMediaAccess('microphone');
           if (granted) {
