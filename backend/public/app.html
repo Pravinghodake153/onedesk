@@ -618,6 +618,111 @@
     }
     .clipboard-toast.show { transform: translateY(0); }
 
+    /* ─── Streaming Mode Pill ────────────────────────────────────── */
+    .stream-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffffff;
+      background: rgba(18, 18, 28, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      transition: all 0.25s ease;
+      user-select: none;
+    }
+    .stream-mode-pill:hover {
+      background: rgba(30, 30, 48, 0.95);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+    .stream-mode-pill.clear-vision {
+      border-color: rgba(48, 209, 88, 0.5);
+    }
+    .stream-mode-pill.clear-vision .smode-dot {
+      background: #30d158;
+      box-shadow: 0 0 10px #30d158;
+    }
+    .stream-mode-pill.live-stream {
+      border-color: rgba(10, 132, 255, 0.5);
+    }
+    .stream-mode-pill.live-stream .smode-dot {
+      background: #0a84ff;
+      box-shadow: 0 0 10px #0a84ff;
+    }
+    .smode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    /* ─── Clean Fullscreen Mode ──────────────────────────────────── */
+    #viewerPage.clean-fullscreen .cursor-mode-bar,
+    #viewerPage.clean-fullscreen .viewer-toolbar,
+    #viewerPage.clean-fullscreen .viewer-stats,
+    #viewerPage.clean-fullscreen .clipboard-toast,
+    #viewerPage.clean-fullscreen .viewer-connecting.hidden,
+    #viewerPage.clean-fullscreen #viewerOverlayControls {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Fullscreen edge-reveal exit bar */
+    .fullscreen-exit-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    #viewerPage.clean-fullscreen .fullscreen-exit-bar {
+      display: flex;
+    }
+    #viewerPage:not(.clean-fullscreen) .fullscreen-exit-bar {
+      display: none;
+    }
+    .fullscreen-exit-bar.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .fullscreen-exit-bar .exit-btn {
+      padding: 6px 16px;
+      background: rgba(255, 69, 58, 0.2);
+      border: 1px solid rgba(255, 69, 58, 0.4);
+      color: #ff453a;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .fullscreen-exit-bar .exit-btn:hover {
+      background: rgba(255, 69, 58, 0.4);
+    }
+    .fullscreen-exit-bar .mode-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      font-weight: 500;
+    }
+
     /* ─── Footer ─────────────────────────────────────────────────── */
     .footer {
       margin-top: 48px;
@@ -801,8 +906,17 @@
       </div>
     </div>
 
+    <!-- Streaming Mode Pill (next to cursor mode bar) -->
+    <div class="cursor-mode-bar" id="streamModeBar" style="left: auto; right: 220px; top: 16px;">
+      <button id="streamModePill" class="stream-mode-pill live-stream" onclick="toggleStreamMode()" title="Toggle streaming quality (Tab key)">
+        <span class="smode-dot"></span>
+        <span id="streamModeLabel">Live Stream</span>
+        <span class="mode-shortcut">TAB</span>
+      </button>
+    </div>
+
     <!-- Minimal Overlay controls -->
-    <div style="position: absolute; top: 16px; right: 16px; z-index: 20; display: flex; gap: 8px;">
+    <div id="viewerOverlayControls" style="position: absolute; top: 16px; right: 16px; z-index: 20; display: flex; gap: 8px;">
       <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
       </button>
@@ -812,6 +926,12 @@
       <button class="tb-btn" title="Disconnect" onclick="disconnectViewer()" style="background: rgba(255,69,58,0.2); color: #ff453a; backdrop-filter: blur(10px);">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
+    </div>
+
+    <!-- Fullscreen edge-reveal exit bar -->
+    <div class="fullscreen-exit-bar" id="fullscreenExitBar">
+      <span class="mode-label" id="fsModeLabelText">Live Stream · Fullscreen</span>
+      <button class="exit-btn" onclick="toggleFullscreen()">Exit Fullscreen</button>
     </div>
 
     <!-- Hidden input to summon mobile keyboard -->
@@ -841,12 +961,14 @@
     let heartbeatInterval = null;
     let statsInterval = null;
     let showingStats = false;
-    let inputListenersAttached = false;
+    let inputAbortController = null; // AbortController for input listener cleanup
     let currentFeature = null;
     let devices = [];
     let targetDevice = null;
     let currentPath = '~';
     let fileTransferActive = false;
+    let streamMode = 'live'; // 'live' = high FPS low quality, 'clear' = low FPS high quality
+    let fullscreenEdgeTimer = null;
 
     const ICE_SERVERS = [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -1338,11 +1460,15 @@
       window.removeEventListener('resize', updateDimensionBadge);
       window.addEventListener('resize', updateDimensionBadge);
 
+      const streamModeBar = document.getElementById('streamModeBar');
+
       if (feature === 'camera' || feature === 'mic') {
         if (cursorModeBar) cursorModeBar.style.display = 'none';
+        if (streamModeBar) streamModeBar.style.display = 'none';
         remoteVideo.style.cursor = 'default';
       } else {
         if (cursorModeBar) cursorModeBar.style.display = 'flex';
+        if (streamModeBar) streamModeBar.style.display = 'flex';
         setCursorMode('remote');
       }
 
@@ -1482,8 +1608,12 @@
 
     // ─── Input Capture ──────────────────────────────────────────
     function setupInputCapture() {
-      if (inputListenersAttached) return;
-      inputListenersAttached = true;
+      // Abort previous listeners to prevent duplicates
+      if (inputAbortController) {
+        inputAbortController.abort();
+      }
+      inputAbortController = new AbortController();
+      const signal = inputAbortController.signal;
 
       const video = document.getElementById('remoteVideo');
 
@@ -1495,7 +1625,7 @@
         if (!coords.inside) return; // Don't move mouse into letterbox/pillarbox margins
 
         sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
-      }, 16));
+      }, 16), { signal });
 
       video.addEventListener('mousedown', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1505,7 +1635,7 @@
         if (!coords.inside) return;
 
         sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: e.button });
-      });
+      }, { signal });
 
       video.addEventListener('mouseup', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1513,29 +1643,37 @@
 
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
         sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: e.button });
-      });
+      }, { signal });
 
       video.addEventListener('wheel', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
-        sendInput({ type: 'scroll', deltaX: deltaY = e.deltaX, deltaY: e.deltaY });
-      }, { passive: false });
+        sendInput({ type: 'scroll', deltaX: e.deltaX, deltaY: e.deltaY });
+      }, { passive: false, signal });
 
       video.addEventListener('contextmenu', (e) => {
         if (cursorMode === 'remote') {
           e.preventDefault();
         }
-      });
+      }, { signal });
 
       document.addEventListener('keydown', (e) => {
         if (!document.getElementById('viewerPage').classList.contains('active')) return;
 
         // Pressing ESC toggles between Remote Cursor and Current Desktop Cursor!
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && !document.fullscreenElement) {
           e.preventDefault();
           e.stopPropagation();
           toggleCursorMode();
+          return;
+        }
+
+        // Tab key toggles streaming quality mode
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleStreamMode();
           return;
         }
 
@@ -1548,7 +1686,7 @@
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey,
           altKey: e.altKey, metaKey: e.metaKey
         });
-      });
+      }, { signal });
 
       document.addEventListener('keyup', (e) => {
         if (!document.getElementById('viewerPage').classList.contains('active')) return;
@@ -1558,7 +1696,7 @@
 
         e.preventDefault();
         sendInput({ type: 'keyup', key: e.key, code: e.code });
-      });
+      }, { signal });
 
       // Touch events for mobile
       let touchStartPos = { x: 0, y: 0 };
@@ -1580,7 +1718,7 @@
         if (cursorMode === 'remote') {
           sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
         }
-      }, { passive: false });
+      }, { passive: false, signal });
 
       video.addEventListener('touchmove', throttle((e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1590,7 +1728,7 @@
         const touch = e.touches[0];
         const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
         sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
-      }, 16), { passive: false });
+      }, 16), { passive: false, signal });
 
       video.addEventListener('touchend', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1606,7 +1744,7 @@
           }, 50);
         }
         touchCount = e.touches.length;
-      });
+      }, { signal });
 
 
       // Virtual Keyboard Capture
@@ -1619,7 +1757,7 @@
         }
         // Clear input to prevent it from filling up
         virtualInput.value = '';
-      });
+      }, { signal });
 
       virtualInput.addEventListener('keydown', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1630,7 +1768,13 @@
             sendInput({ type: 'keyup', key: e.key, code: e.code || e.key });
           }, 20);
         }
-      });
+      }, { signal });
+
+      // Double-click video to toggle fullscreen
+      video.addEventListener('dblclick', (e) => {
+        if (cursorMode !== 'remote') return;
+        toggleFullscreen();
+      }, { signal });
     }
 
     // ─── File Explorer ────────────────────────────────────────────
@@ -1919,11 +2063,87 @@
 
     // ─── Controls ───────────────────────────────────────────────
     function toggleFullscreen() {
+      const viewer = document.getElementById('viewerPage');
       if (!document.fullscreenElement) {
-        document.getElementById('viewerPage').requestFullscreen();
+        viewer.requestFullscreen().then(() => {
+          viewer.classList.add('clean-fullscreen');
+          updateFsModeLabelText();
+        }).catch(err => {
+          console.warn('[Fullscreen] Failed:', err);
+        });
       } else {
         document.exitFullscreen();
       }
+    }
+
+    // Listen for fullscreen changes to clean up class
+    document.addEventListener('fullscreenchange', () => {
+      const viewer = document.getElementById('viewerPage');
+      if (!document.fullscreenElement) {
+        viewer.classList.remove('clean-fullscreen');
+        const exitBar = document.getElementById('fullscreenExitBar');
+        if (exitBar) exitBar.classList.remove('visible');
+      }
+    });
+
+    // Edge-reveal: show exit bar when mouse is near top of screen in fullscreen
+    document.addEventListener('mousemove', (e) => {
+      if (!document.fullscreenElement) return;
+      const exitBar = document.getElementById('fullscreenExitBar');
+      if (!exitBar) return;
+
+      if (e.clientY <= 6) {
+        exitBar.classList.add('visible');
+        clearTimeout(fullscreenEdgeTimer);
+        fullscreenEdgeTimer = setTimeout(() => {
+          exitBar.classList.remove('visible');
+        }, 3000);
+      } else if (e.clientY > 60) {
+        exitBar.classList.remove('visible');
+        clearTimeout(fullscreenEdgeTimer);
+      }
+    });
+
+    function updateFsModeLabelText() {
+      const label = document.getElementById('fsModeLabelText');
+      if (label) {
+        const modeName = streamMode === 'clear' ? 'Clear Vision' : 'Live Stream';
+        label.textContent = `${modeName} · Fullscreen`;
+      }
+    }
+
+    // ─── Streaming Mode Toggle ─────────────────────────────────────
+    function toggleStreamMode() {
+      streamMode = (streamMode === 'live') ? 'clear' : 'live';
+      const pill = document.getElementById('streamModePill');
+      const label = document.getElementById('streamModeLabel');
+      const bar = document.getElementById('streamModeBar');
+
+      if (streamMode === 'clear') {
+        pill.className = 'stream-mode-pill clear-vision';
+        label.textContent = 'Clear Vision';
+        showClipboardToast('Clear Vision Mode — High quality, lower FPS (Press TAB to switch)');
+      } else {
+        pill.className = 'stream-mode-pill live-stream';
+        label.textContent = 'Live Stream';
+        showClipboardToast('Live Stream Mode — Smooth FPS, optimized quality (Press TAB to switch)');
+      }
+
+      updateFsModeLabelText();
+      applyStreamModeToSender();
+
+      // Tell host about mode change via input data channel
+      if (inputChannel && inputChannel.readyState === 'open') {
+        inputChannel.send(JSON.stringify({ type: 'quality-mode', mode: streamMode }));
+      }
+    }
+
+    function applyStreamModeToSender() {
+      if (!peerConnection) return;
+      const senders = peerConnection.getSenders();
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+      // Client is receiver, not sender — the bitrate control is done on the host side
+      // We signal the host via DataChannel; no local sender adjustment needed for incoming stream
     }
 
     function notifyHostDisconnect() {
@@ -1987,10 +2207,27 @@
         statsInterval = null;
       }
 
+      // Abort all input event listeners cleanly
+      if (inputAbortController) {
+        inputAbortController.abort();
+        inputAbortController = null;
+      }
+
       // Reset state
-      inputListenersAttached = false;
       currentFeature = null;
       showingStats = false;
+      streamMode = 'live';
+
+      // Reset stream mode UI
+      const smPill = document.getElementById('streamModePill');
+      const smLabel = document.getElementById('streamModeLabel');
+      if (smPill) smPill.className = 'stream-mode-pill live-stream';
+      if (smLabel) smLabel.textContent = 'Live Stream';
+
+      // Exit fullscreen if active
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
 
       // Stop and reset video tracks
       const video = document.getElementById('remoteVideo');
@@ -2002,7 +2239,7 @@
       }
       if (video) {
         video.muted = true;
-        video.style.cursor = 'none';
+        video.style.cursor = 'default';
       }
 
       if (updateHistory) {

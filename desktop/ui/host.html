@@ -238,6 +238,14 @@
               try {
                 peerData.lastHeard = Date.now();
                 const inputEvent = JSON.parse(msg.data);
+
+                // Quality mode change from client
+                if (inputEvent.type === 'quality-mode') {
+                  console.log(`[Host] Quality mode changed to: ${inputEvent.mode}`);
+                  applyQualityMode(pc, inputEvent.mode);
+                  return;
+                }
+
                 // Forward to main process for native OS simulation
                 window.onedesk.simulateInput(inputEvent);
               } catch (e) {
@@ -348,6 +356,45 @@
         }
       }
     });
+
+    // ─── Quality Mode Adjustment ───────────────────────────────────
+    async function applyQualityMode(pc, mode) {
+      const senders = pc.getSenders();
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+      if (!videoSender) {
+        console.warn('[Host] No video sender found for quality adjustment');
+        return;
+      }
+
+      try {
+        const params = videoSender.getParameters();
+        if (!params.encodings || params.encodings.length === 0) {
+          params.encodings = [{}];
+        }
+
+        if (mode === 'clear') {
+          // Clear Vision: High quality, lower FPS
+          params.encodings[0].maxBitrate = 4000000;   // 4 Mbps
+          params.encodings[0].maxFramerate = 10;       // 10 FPS
+          // scaleResolutionDownBy = 1 means no downscale (full resolution)
+          params.encodings[0].scaleResolutionDownBy = 1.0;
+        } else {
+          // Live Stream: Smooth FPS, balanced quality
+          params.encodings[0].maxBitrate = 1500000;   // 1.5 Mbps
+          params.encodings[0].maxFramerate = 30;       // 30 FPS
+          params.encodings[0].scaleResolutionDownBy = 1.5; // Slight downscale for speed
+        }
+
+        await videoSender.setParameters(params);
+        console.log(`[Host] Video encoding set to ${mode} mode:`, {
+          maxBitrate: params.encodings[0].maxBitrate,
+          maxFramerate: params.encodings[0].maxFramerate,
+          scaleResolutionDownBy: params.encodings[0].scaleResolutionDownBy
+        });
+      } catch (err) {
+        console.error('[Host] Failed to set quality parameters:', err);
+      }
+    }
 
     // ─── Stream Cleanup & Hardware Release ──────────────────────────
     function cleanupAllStreams() {
