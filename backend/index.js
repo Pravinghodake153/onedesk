@@ -7,6 +7,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.text({ type: ['text/*', 'application/json'] }));
 
 // Serve the web client
 app.use(express.static(path.join(__dirname, 'public')));
@@ -81,16 +82,24 @@ app.get('/stats', (req, res) => {
 
 // Disconnect endpoint for sendBeacon (reliable delivery during page unload)
 app.post('/api/disconnect', (req, res) => {
-  const { targetSocketId, senderSocketId } = req.body;
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) {}
+  }
+  const { targetSocketId, senderSocketId } = body || {};
   if (targetSocketId) {
-    console.log(`[API Disconnect] ${senderSocketId} → ${targetSocketId}`);
+    console.log(`[API Disconnect] ${senderSocketId || 'unknown'} → ${targetSocketId}`);
     io.to(targetSocketId).emit('webrtc-disconnect', {
       senderSocketId: senderSocketId || 'unknown'
     });
 
     // Clean up connection tracking
-    const connId = `${senderSocketId}:${targetSocketId}`;
-    connections.delete(connId);
+    for (const [connId, conn] of connections) {
+      if ((conn.clientSocketId === senderSocketId && conn.hostSocketId === targetSocketId) ||
+          conn.hostSocketId === targetSocketId) {
+        connections.delete(connId);
+      }
+    }
   }
   res.status(200).json({ ok: true });
 });
@@ -180,6 +189,16 @@ io.on('connection', (socket) => {
     // Clean up connection tracking
     const connId = `${socket.id}:${targetSocketId}`;
     connections.delete(connId);
+  });
+
+  socket.on('stream-heartbeat', (data) => {
+    const { targetSocketId, feature } = data || {};
+    if (targetSocketId) {
+      socket.to(targetSocketId).emit('stream-heartbeat', {
+        senderSocketId: socket.id,
+        feature
+      });
+    }
   });
 
   socket.on('device-command', (data) => {

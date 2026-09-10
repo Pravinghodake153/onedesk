@@ -837,6 +837,8 @@
     let peerConnection = null;
     let inputChannel = null;
     let clipboardChannel = null;
+    let heartbeatChannel = null;
+    let heartbeatInterval = null;
     let statsInterval = null;
     let showingStats = false;
     let inputListenersAttached = false;
@@ -1297,7 +1299,20 @@
       targetDevice = devices.find(d => d.socketId === socketId);
       if (!targetDevice) return;
 
-      console.log('[Web] Connecting to', targetDevice.deviceName);
+      console.log('[Web] Connecting to', targetDevice.deviceName, 'for', feature);
+
+      // Clean up any existing connection and intervals before starting anew
+      if (peerConnection) {
+        console.log('[Web] Teardown previous peer connection before establishing new feature stream');
+        try { peerConnection.close(); } catch (e) {}
+        peerConnection = null;
+      }
+      if (inputChannel) { try { inputChannel.close(); } catch (e) {} inputChannel = null; }
+      if (clipboardChannel) { try { clipboardChannel.close(); } catch (e) {} clipboardChannel = null; }
+      if (heartbeatChannel) { try { heartbeatChannel.close(); } catch (e) {} heartbeatChannel = null; }
+      if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+      if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+
       currentFeature = feature;
 
       // Show viewer
@@ -1306,6 +1321,13 @@
 
       const remoteVideo = document.getElementById('remoteVideo');
       const cursorModeBar = document.getElementById('cursorModeBar');
+
+      // Stop any existing tracks on previous stream
+      if (remoteStream) {
+        try {
+          remoteStream.getTracks().forEach(t => t.stop());
+        } catch (e) {}
+      }
 
       // Initialize unified media stream
       remoteStream = new MediaStream();
@@ -1366,6 +1388,39 @@
           peerConnection.restartIce();
         }
       };
+
+      // Heartbeat channel (Direct P2P listener check)
+      heartbeatChannel = peerConnection.createDataChannel('heartbeat', { ordered: false, maxRetransmits: 0 });
+      heartbeatChannel.onopen = () => {
+        console.log('[Web] Heartbeat channel open — actively listening');
+        try {
+          heartbeatChannel.send(JSON.stringify({ type: 'listening', t: Date.now() }));
+        } catch (e) {}
+      };
+      heartbeatChannel.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data.type === 'ping') {
+            // Immediately respond to host ping to confirm active listening
+            heartbeatChannel.send(JSON.stringify({ type: 'pong', t: Date.now() }));
+          }
+        } catch (e) {}
+      };
+
+      // Start regular heartbeat timer (both Socket.IO and WebRTC DataChannel)
+      heartbeatInterval = setInterval(() => {
+        if (socket && socket.connected && targetDevice) {
+          socket.emit('stream-heartbeat', {
+            targetSocketId: targetDevice.socketId,
+            feature: currentFeature
+          });
+        }
+        if (heartbeatChannel && heartbeatChannel.readyState === 'open') {
+          try {
+            heartbeatChannel.send(JSON.stringify({ type: 'listening', t: Date.now() }));
+          } catch (e) {}
+        }
+      }, 1500);
 
       // Input data channel (only for screen share)
       if (feature === 'screen' || feature === 'av') {
@@ -1872,18 +1927,28 @@
     }
 
     function notifyHostDisconnect() {
+      // 1. Direct P2P stop signal to host if data channel open
+      if (heartbeatChannel && heartbeatChannel.readyState === 'open') {
+        try {
+          heartbeatChannel.send(JSON.stringify({ type: 'stop-listening' }));
+        } catch (e) {}
+      }
+
       if (targetDevice) {
         const payload = JSON.stringify({
           targetSocketId: targetDevice.socketId,
           senderSocketId: socket ? socket.id : null
         });
 
-        // 1. sendBeacon delivers reliably during page unload/tab close
+        // 2. sendBeacon with application/json Blob for guaranteed delivery during unload
         try {
-          navigator.sendBeacon('/api/disconnect', payload);
-        } catch (e) {}
+          const blob = new Blob([payload], { type: 'application/json' });
+          navigator.sendBeacon('/api/disconnect', blob);
+        } catch (e) {
+          try { navigator.sendBeacon('/api/disconnect', payload); } catch (err) {}
+        }
 
-        // 2. Direct socket emit if connected
+        // 3. Direct socket emit if connected
         if (socket && socket.connected) {
           try {
             socket.emit('webrtc-disconnect', {
@@ -1897,6 +1962,14 @@
     function disconnectViewer(updateHistory = true) {
       notifyHostDisconnect();
 
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+      if (heartbeatChannel) {
+        try { heartbeatChannel.close(); } catch (e) {}
+        heartbeatChannel = null;
+      }
       if (peerConnection) {
         try { peerConnection.close(); } catch (e) {}
         peerConnection = null;

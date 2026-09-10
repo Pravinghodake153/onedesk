@@ -19,7 +19,20 @@
 
     // ─── Screen Capture ─────────────────────────────────────────────
     async function getScreenStream() {
-      if (screenStream && screenStream.active) return screenStream;
+      if (screenStream && screenStream.active) {
+        const tracks = screenStream.getVideoTracks();
+        if (tracks.length > 0 && tracks[0].readyState === 'live') {
+          return screenStream;
+        }
+      }
+
+      // Stop any dead/ended tracks
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+        screenStream = null;
+      }
 
       try {
         const sources = await window.onedesk.getScreenSources();
@@ -47,10 +60,13 @@
         });
 
         // Monitor stream health
-        screenStream.getVideoTracks()[0].onended = () => {
-          console.warn('[Host] Screen capture track ended — will recapture on next connection');
-          screenStream = null;
-        };
+        const tracks = screenStream.getVideoTracks();
+        if (tracks.length > 0) {
+          tracks[0].onended = () => {
+            console.warn('[Host] Screen capture track ended — will recapture on next connection');
+            screenStream = null;
+          };
+        }
 
         console.log(`[Host] Screen capture started: ${screenInfo.width}x${screenInfo.height}`);
         return screenStream;
@@ -65,12 +81,42 @@
       const { senderSocketId, offer, feature = 'screen' } = data;
       console.log(`[Host] Processing offer from ${senderSocketId} (${feature})`);
 
+      // If this peer already had an active connection, clean it up first
+      if (peers.has(senderSocketId)) {
+        console.log(`[Host] Closing previous connection for ${senderSocketId} before switching to ${feature}`);
+        cleanupPeer(senderSocketId);
+      }
+
+      // Stop opposing streams to release hardware and prevent device conflict
+      if (feature === 'camera' || feature === 'av') {
+        if (screenStream) {
+          screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          screenStream = null;
+          console.log('[Host] Screen capture stopped for camera mode');
+        }
+      } else if (feature === 'screen') {
+        if (camStream) {
+          camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          camStream = null;
+          console.log('[Host] Camera capture stopped (hardware released) for screen mode');
+        }
+      } else if (feature === 'mic') {
+        if (screenStream) {
+          screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          screenStream = null;
+        }
+        if (camStream) {
+          camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          camStream = null;
+        }
+      }
+
       // Capture requested streams
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       let hasTracks = false;
 
-      // Screen Capture
-      if (feature === 'screen' || feature === 'av') {
+      // Screen Capture (ONLY for screen feature)
+      if (feature === 'screen') {
         const stream = await getScreenStream();
         if (stream) {
           stream.getTracks().forEach(track => pc.addTrack(track, stream));
@@ -80,17 +126,27 @@
         }
       }
 
-      // Camera Capture
+      // Camera Capture (for camera or av)
       if (feature === 'camera' || feature === 'av') {
         try {
           const granted = await window.onedesk.requestMediaAccess('camera');
           if (granted) {
-            if (!camStream) {
+            let isLive = false;
+            if (camStream && camStream.active) {
+              const tracks = camStream.getVideoTracks();
+              if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                isLive = true;
+              }
+            }
+            if (!isLive) {
+              if (camStream) {
+                camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+              }
               camStream = await navigator.mediaDevices.getUserMedia({ video: true });
             }
             camStream.getTracks().forEach(track => pc.addTrack(track, camStream));
             hasTracks = true;
-            console.log('[Host] Camera capture started');
+            console.log('[Host] Camera capture attached');
           } else {
             console.error('[Host] Camera access denied by macOS');
           }
@@ -104,12 +160,22 @@
         try {
           const granted = await window.onedesk.requestMediaAccess('microphone');
           if (granted) {
-            if (!micStream) {
+            let isLive = false;
+            if (micStream && micStream.active) {
+              const tracks = micStream.getAudioTracks();
+              if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                isLive = true;
+              }
+            }
+            if (!isLive) {
+              if (micStream) {
+                micStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+              }
               micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             }
             micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
             hasTracks = true;
-            console.log('[Host] Microphone capture started');
+            console.log('[Host] Microphone capture attached');
           } else {
             console.error('[Host] Microphone access denied by macOS');
           }
@@ -134,17 +200,43 @@
       };
 
       // ─── Data Channels ──────────────────────────────────────────
-      const peerData = { pc, inputChannel: null, clipboardChannel: null, fileChannel: null };
+      const peerData = {
+        pc,
+        inputChannel: null,
+        clipboardChannel: null,
+        fileChannel: null,
+        heartbeatChannel: null,
+        lastHeard: Date.now(),
+        heartbeatTimer: null,
+        watchdogTimer: null
+      };
 
       pc.ondatachannel = (event) => {
         const channel = event.channel;
         console.log(`[Host] Data channel received: ${channel.label}`);
 
         switch (channel.label) {
+          case 'heartbeat':
+            peerData.heartbeatChannel = channel;
+            peerData.lastHeard = Date.now();
+            channel.onmessage = (msg) => {
+              try {
+                const data = JSON.parse(msg.data);
+                if (data.type === 'pong' || data.type === 'listening') {
+                  peerData.lastHeard = Date.now();
+                } else if (data.type === 'stop-listening') {
+                  console.log(`[Host] Client ${senderSocketId} explicitly stopped listening — shutting down stream`);
+                  cleanupPeer(senderSocketId);
+                }
+              } catch (e) {}
+            };
+            break;
+
           case 'input':
             peerData.inputChannel = channel;
             channel.onmessage = (msg) => {
               try {
+                peerData.lastHeard = Date.now();
                 const inputEvent = JSON.parse(msg.data);
                 // Forward to main process for native OS simulation
                 window.onedesk.simulateInput(inputEvent);
@@ -158,6 +250,7 @@
             peerData.clipboardChannel = channel;
             channel.onmessage = (msg) => {
               try {
+                peerData.lastHeard = Date.now();
                 const clipboardData = JSON.parse(msg.data);
                 window.onedesk.writeClipboardFromRemote(clipboardData);
               } catch (e) {
@@ -170,6 +263,7 @@
             peerData.fileChannel = channel;
             channel.onmessage = (msg) => {
               try {
+                peerData.lastHeard = Date.now();
                 const fileMsg = JSON.parse(msg.data);
                 window.onedesk.receiveFileMessage(fileMsg);
               } catch (e) {
@@ -179,6 +273,23 @@
             break;
         }
       };
+
+      // Active Streaming Listener Check (Ping/Pong Watchdog)
+      peerData.heartbeatTimer = setInterval(() => {
+        if (peerData.heartbeatChannel && peerData.heartbeatChannel.readyState === 'open') {
+          try {
+            peerData.heartbeatChannel.send(JSON.stringify({ type: 'ping', t: Date.now() }));
+          } catch (e) {}
+        }
+      }, 1000);
+
+      peerData.watchdogTimer = setInterval(() => {
+        const silence = Date.now() - peerData.lastHeard;
+        if (silence > 3500) {
+          console.warn(`[Host Watchdog] Client ${senderSocketId} is no longer listening (${silence}ms silence) — stopping stream and releasing hardware!`);
+          cleanupPeer(senderSocketId);
+        }
+      }, 1000);
 
       // Connection state management
       pc.onconnectionstatechange = () => {
@@ -212,7 +323,7 @@
       });
 
       peers.set(senderSocketId, peerData);
-      console.log(`[Host] Answer sent to ${senderSocketId} — streaming`);
+      console.log(`[Host] Answer sent to ${senderSocketId} — streaming ${feature}`);
     }
 
     // ─── Handle ICE Candidate ───────────────────────────────────────
@@ -266,6 +377,20 @@
     function cleanupPeer(socketId) {
       const peer = peers.get(socketId);
       if (peer) {
+        if (peer.heartbeatTimer) clearInterval(peer.heartbeatTimer);
+        if (peer.watchdogTimer) clearInterval(peer.watchdogTimer);
+        if (peer.heartbeatChannel) {
+          try { peer.heartbeatChannel.close(); } catch (e) {}
+        }
+        if (peer.inputChannel) {
+          try { peer.inputChannel.close(); } catch (e) {}
+        }
+        if (peer.clipboardChannel) {
+          try { peer.clipboardChannel.close(); } catch (e) {}
+        }
+        if (peer.fileChannel) {
+          try { peer.fileChannel.close(); } catch (e) {}
+        }
         if (peer.pc) {
           try { peer.pc.close(); } catch (e) {}
         }
@@ -305,7 +430,17 @@
     window.onedesk.onHostIceCandidate(handleIceCandidate);
     window.onedesk.onWebRTCDisconnect(handleDisconnect);
 
-    console.log('[Host] Host renderer ready — energy-saving mode active');
+    if (window.onedesk.onStreamHeartbeat) {
+      window.onedesk.onStreamHeartbeat((data) => {
+        const { senderSocketId } = data || {};
+        const peer = peers.get(senderSocketId);
+        if (peer) {
+          peer.lastHeard = Date.now();
+        }
+      });
+    }
+
+    console.log('[Host] Host renderer ready — energy-saving mode active with streaming listener check');
   </script>
 </body>
 </html>

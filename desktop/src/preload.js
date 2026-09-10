@@ -70,6 +70,10 @@ contextBridge.exposeInMainWorld('onedesk', {
     ipcRenderer.on('webrtc-disconnect', (_, data) => callback(data));
   },
 
+  onStreamHeartbeat: (callback) => {
+    ipcRenderer.on('stream-heartbeat', (_, data) => callback(data));
+  },
+
   // ──────────────────────────────────────────────────────────────────
   // Input Simulation (host renderer → main process → native OS)
   // ──────────────────────────────────────────────────────────────────

@@ -232,6 +232,12 @@ app.whenReady().then(() => {
     }
   });
 
+  signaling.on('stream-heartbeat', (data) => {
+    if (hostWindow && !hostWindow.isDestroyed()) {
+      hostWindow.webContents.send('stream-heartbeat', data);
+    }
+  });
+
   // Handle remote commands from Web App
   signaling.on('device-command', (data) => {
     if (data.command === 'toggle_autostart') {
