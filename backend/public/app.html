@@ -658,7 +658,7 @@
 
   <!-- ─── Device Dashboard Page ────────────────────────────────── -->
   <div class="app" id="dashboardPage">
-    <button class="back-btn" onclick="showPage('devicePage')">
+    <button class="back-btn" onclick="navigateTo('/')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       Back to Devices
     </button>
@@ -674,42 +674,56 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         </div>
         <h4>Browse Files</h4>
-      </div>
-      <div class="dash-card" onclick="openFeature('browser')">
-        <div class="icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-        </div>
-        <h4>Cloud Browser</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/browse</span>
       </div>
       <div class="dash-card" onclick="openFeature('screen')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
         </div>
         <h4>Screen Share</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/screen</span>
+      </div>
+      <div class="dash-card" onclick="openFeature('claude')">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        </div>
+        <h4>Claude AI</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/claude</span>
+      </div>
+      <div class="dash-card" onclick="openFeature('browser')">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </div>
+        <h4>Cloud Browser</h4>
+        <span style="font-size: 11px; opacity: 0.5;">Cookie sync</span>
       </div>
       <div class="dash-card" onclick="openFeature('camera')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
         </div>
         <h4>View Camera</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/camera</span>
       </div>
       <div class="dash-card" onclick="openFeature('mic')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
         </div>
         <h4>Listen Mic</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/mic</span>
       </div>
       <div class="dash-card" onclick="openFeature('av')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
         </div>
         <h4>Camera + Mic</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/av</span>
       </div>
       <div class="dash-card" onclick="openFeature('terminal')">
         <div class="icon">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
         </div>
         <h4>Terminal</h4>
+        <span style="font-size: 11px; opacity: 0.5;">/terminal</span>
       </div>
       <div class="dash-card" onclick="toggleAutoStartFromDash()">
         <div class="icon">
@@ -733,7 +747,7 @@
 
   <!-- ─── File Browser Page ────────────────────────────────────── -->
   <div class="app" id="fileBrowserPage">
-    <button class="back-btn" onclick="showPage('dashboardPage')">
+    <button class="back-btn" onclick="navigateTo('/dashboard')">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       Back to Dashboard
     </button>
@@ -875,6 +889,19 @@
           d.type === 'host' && d.deviceId !== BROWSER_DEVICE_ID
         );
         renderDevices();
+
+        // If user came via a direct route like /screen, /browse, /claude, /camera
+        if (window._pendingRoute && devices.length > 0) {
+          const route = window._pendingRoute;
+          window._pendingRoute = null;
+          handleRoute(route, false);
+        }
+      });
+
+      socket.on('webrtc-disconnect', () => {
+        console.log('[Web] Remote host disconnected or closed session');
+        showClipboardToast('Remote host disconnected');
+        disconnectViewer(false);
       });
 
       // WebRTC signaling
@@ -1026,9 +1053,8 @@
       return 'Browser';
     }
 
-    // ─── Navigation ─────────────────────────────────────────────
+    // ─── Navigation & Production Routing ─────────────────────────
     function showPage(pageId) {
-      // Hide all .app pages and special pages
       document.querySelectorAll('.app').forEach(p => p.style.display = 'none');
       document.getElementById('viewerPage').style.display = 'none';
       document.getElementById('viewerPage').classList.remove('active');
@@ -1036,10 +1062,67 @@
       const target = document.getElementById(pageId);
       if (!target) return;
 
-      // Show the requested page
       target.style.display = 'block';
       if (pageId === 'viewerPage') {
         target.classList.add('active');
+      }
+    }
+
+    function navigateTo(url, pushState = true) {
+      if (pushState && window.location.pathname !== url) {
+        history.pushState(null, '', url);
+      }
+      handleRoute(url);
+    }
+
+    function handleRoute(path = window.location.pathname) {
+      const cleanPath = path.toLowerCase().replace(/\/$/, '') || '/';
+
+      if (cleanPath === '/' || cleanPath === '/app') {
+        showPage('devicePage');
+        return;
+      }
+
+      if (cleanPath === '/dashboard') {
+        if (targetDevice) {
+          showPage('dashboardPage');
+        } else if (devices.length > 0) {
+          targetDevice = devices[0];
+          document.getElementById('dashDeviceName').textContent = targetDevice.deviceName;
+          showPage('dashboardPage');
+        } else {
+          showPage('devicePage');
+        }
+        return;
+      }
+
+      const featureMap = {
+        '/screen': 'screen',
+        '/browse': 'files',
+        '/files': 'files',
+        '/claude': 'claude',
+        '/camera': 'camera',
+        '/mic': 'mic',
+        '/av': 'av',
+        '/terminal': 'terminal'
+      };
+
+      const feature = featureMap[cleanPath];
+      if (!feature) {
+        showPage('devicePage');
+        return;
+      }
+
+      if (devices.length > 0) {
+        if (!targetDevice) {
+          targetDevice = devices[0];
+          document.getElementById('dashDeviceName').textContent = targetDevice.deviceName;
+        }
+        openFeature(feature, false);
+      } else {
+        window._pendingRoute = cleanPath;
+        showPage('devicePage');
+        updateStatus('connecting', `Waiting for device to connect to ${cleanPath}...`);
       }
     }
 
@@ -1048,7 +1131,7 @@
       if (!targetDevice) return;
 
       document.getElementById('dashDeviceName').textContent = targetDevice.deviceName;
-      showPage('dashboardPage');
+      navigateTo('/dashboard');
     }
 
     function toggleAutoStartFromDash() {
@@ -1057,9 +1140,33 @@
       }
     }
 
-    function openFeature(feature) {
+    function openFeature(feature, updateHistory = true) {
       if (!targetDevice) return;
+
+      const routeMap = {
+        'screen': '/screen',
+        'files': '/browse',
+        'claude': '/claude',
+        'camera': '/camera',
+        'mic': '/mic',
+        'av': '/av',
+        'terminal': '/terminal',
+        'browser': '/browse'
+      };
+
+      if (updateHistory && routeMap[feature] && window.location.pathname !== routeMap[feature]) {
+        history.pushState(null, '', routeMap[feature]);
+      }
       
+      if (feature === 'claude') {
+        window._pendingNativeUrl = 'https://claude.ai';
+        showClipboardToast('Syncing host session cookies for Claude AI...');
+        socket.emit('request-host-cookies', {
+          targetSocketId: targetDevice.socketId
+        });
+        return;
+      }
+
       if (feature === 'browser') {
         const url = prompt('Native Viewer: Enter the URL you want to browse (e.g. google.com):', 'https://google.com');
         if (!url) return;
@@ -1085,8 +1192,6 @@
       }
       
       if (feature === 'screen' || feature === 'camera' || feature === 'mic' || feature === 'av') {
-        // Send command to host to prepare the right stream if necessary
-        // For now, just connect
         connectToDevice(targetDevice.socketId, feature);
       }
     }
@@ -1766,64 +1871,104 @@
       }
     }
 
-    function disconnectViewer() {
-      // Notify the host to immediately stop streams
-      if (socket && targetDevice) {
-        socket.emit('webrtc-disconnect', {
-          targetSocketId: targetDevice.socketId
+    function notifyHostDisconnect() {
+      if (targetDevice) {
+        const payload = JSON.stringify({
+          targetSocketId: targetDevice.socketId,
+          senderSocketId: socket ? socket.id : null
         });
+
+        // 1. sendBeacon delivers reliably during page unload/tab close
+        try {
+          navigator.sendBeacon('/api/disconnect', payload);
+        } catch (e) {}
+
+        // 2. Direct socket emit if connected
+        if (socket && socket.connected) {
+          try {
+            socket.emit('webrtc-disconnect', {
+              targetSocketId: targetDevice.socketId
+            });
+          } catch (e) {}
+        }
+      }
+    }
+
+    function disconnectViewer(updateHistory = true) {
+      notifyHostDisconnect();
+
+      if (peerConnection) {
+        try { peerConnection.close(); } catch (e) {}
+        peerConnection = null;
+      }
+      if (inputChannel) {
+        try { inputChannel.close(); } catch (e) {}
+        inputChannel = null;
+      }
+      if (clipboardChannel) {
+        try { clipboardChannel.close(); } catch (e) {}
+        clipboardChannel = null;
+      }
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
       }
 
-      if (peerConnection) { peerConnection.close(); peerConnection = null; }
-      if (inputChannel) { inputChannel.close(); inputChannel = null; }
-      if (clipboardChannel) { clipboardChannel.close(); clipboardChannel = null; }
-      if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
-
-      // Reset state for next connection
+      // Reset state
       inputListenersAttached = false;
       currentFeature = null;
       showingStats = false;
 
-      // Reset video
+      // Stop and reset video tracks
       const video = document.getElementById('remoteVideo');
-      video.srcObject = null;
-      video.muted = true;
-      document.getElementById('remoteVideo').style.cursor = 'none';
+      if (video && video.srcObject) {
+        try {
+          video.srcObject.getTracks().forEach(t => t.stop());
+        } catch (e) {}
+        video.srcObject = null;
+      }
+      if (video) {
+        video.muted = true;
+        video.style.cursor = 'none';
+      }
 
-      showPage('dashboardPage');
+      if (updateHistory) {
+        navigateTo('/dashboard');
+      } else {
+        showPage(targetDevice ? 'dashboardPage' : 'devicePage');
+      }
       document.getElementById('viewerConnecting').classList.remove('hidden');
     }
 
-    // ─── Tab Close / Refresh Guard ────────────────────────────────
-    // Show native browser "Leave site?" dialog if a session is active
+    // ─── Tab Close / Navigation Stream Guard ──────────────────────
+    // Immediately cut off camera/screen share when the tab is closed, reloaded or navigated
     window.addEventListener('beforeunload', (e) => {
       if (peerConnection) {
+        notifyHostDisconnect();
         e.preventDefault();
-        // Modern browsers ignore custom messages but still show the dialog
         e.returnValue = 'You have an active streaming session. Are you sure you want to leave?';
         return e.returnValue;
       }
     });
 
-    // If the user confirms leaving, clean up the session so the host stops streaming
     window.addEventListener('pagehide', () => {
-      if (peerConnection && socket && targetDevice) {
-        // Use sendBeacon for reliable delivery even during page unload
-        const payload = JSON.stringify({
-          targetSocketId: targetDevice.socketId,
-          senderSocketId: socket.id
-        });
-        navigator.sendBeacon('/api/disconnect', payload);
+      notifyHostDisconnect();
+    });
 
-        // Also try socket as a fallback
-        socket.emit('webrtc-disconnect', {
-          targetSocketId: targetDevice.socketId
-        });
+    window.addEventListener('unload', () => {
+      notifyHostDisconnect();
+    });
+
+    window.addEventListener('popstate', () => {
+      if (document.getElementById('viewerPage').classList.contains('active')) {
+        disconnectViewer(false);
       }
+      handleRoute(window.location.pathname, false);
     });
 
     // ─── Initialize ─────────────────────────────────────────────
     connectSignaling();
+    handleRoute(window.location.pathname, false);
   </script>
 </body>
 </html>

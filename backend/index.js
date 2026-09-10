@@ -11,6 +11,27 @@ app.use(express.json());
 // Serve the web client
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Production page routes
+const pageRoutes = [
+  '/',
+  '/app',
+  '/browse',
+  '/files',
+  '/screen',
+  '/camera',
+  '/mic',
+  '/av',
+  '/terminal',
+  '/claude',
+  '/dashboard'
+];
+
+pageRoutes.forEach(route => {
+  app.get(route, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'app.html'));
+  });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -266,16 +287,25 @@ io.on('connection', (socket) => {
     const device = devices.get(socket.id);
     console.log(`[-] ${device?.deviceName || socket.id} (${reason})`);
     
-    // Remove device
-    devices.delete(socket.id);
-    
-    // Clean up any active connections involving this socket
+    // Clean up any active connections involving this socket and immediately alert counterparts
     for (const [connId, conn] of connections) {
-      if (conn.hostSocketId === socket.id || conn.clientSocketId === socket.id) {
+      if (conn.clientSocketId === socket.id) {
+        console.log(`[Disconnect Relay] Client ${socket.id} closed — notifying host ${conn.hostSocketId} to immediately release camera/screen`);
+        io.to(conn.hostSocketId).emit('webrtc-disconnect', {
+          senderSocketId: socket.id
+        });
+        connections.delete(connId);
+      } else if (conn.hostSocketId === socket.id) {
+        console.log(`[Disconnect Relay] Host ${socket.id} disconnected — notifying client ${conn.clientSocketId}`);
+        io.to(conn.clientSocketId).emit('webrtc-disconnect', {
+          senderSocketId: socket.id
+        });
         connections.delete(connId);
       }
     }
     
+    // Remove device
+    devices.delete(socket.id);
     broadcastDeviceList();
   });
 });

@@ -183,8 +183,15 @@
       // Connection state management
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
-        console.log(`[Host] Peer ${senderSocketId}: ${state}`);
-        
+        console.log(`[Host] Peer ${senderSocketId} connectionState: ${state}`);
+        if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+          cleanupPeer(senderSocketId);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        console.log(`[Host] Peer ${senderSocketId} iceConnectionState: ${state}`);
         if (state === 'disconnected' || state === 'failed' || state === 'closed') {
           cleanupPeer(senderSocketId);
         }
@@ -231,39 +238,65 @@
       }
     });
 
-    // ─── Cleanup ────────────────────────────────────────────────────
+    // ─── Stream Cleanup & Hardware Release ──────────────────────────
+    function cleanupAllStreams() {
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+        screenStream = null;
+        console.log('[Host] Screen capture stopped');
+      }
+      if (micStream) {
+        micStream.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+        micStream = null;
+        console.log('[Host] Microphone capture stopped');
+      }
+      if (camStream) {
+        camStream.getTracks().forEach(t => {
+          try { t.stop(); } catch (e) {}
+        });
+        camStream = null;
+        console.log('[Host] Camera capture stopped (hardware released)');
+      }
+    }
+
     function cleanupPeer(socketId) {
       const peer = peers.get(socketId);
       if (peer) {
-        if (peer.pc) peer.pc.close();
+        if (peer.pc) {
+          try { peer.pc.close(); } catch (e) {}
+        }
         peers.delete(socketId);
         console.log(`[Host] Cleaned up peer ${socketId}`);
       }
 
-      // If no more peers, stop screen capture to save resources
+      // If no active connections remain, stop all media streams immediately
       if (peers.size === 0) {
-        if (screenStream) {
-          screenStream.getTracks().forEach(t => t.stop());
-          screenStream = null;
-        }
-        if (micStream) {
-          micStream.getTracks().forEach(t => t.stop());
-          micStream = null;
-        }
-        if (camStream) {
-          camStream.getTracks().forEach(t => t.stop());
-          camStream = null;
-        }
-        console.log('[Host] No active connections — capture stopped (saving resources)');
+        cleanupAllStreams();
+        console.log('[Host] No active connections — all streams stopped and hardware released');
       }
     }
 
     // ─── Handle Explicit Disconnect from Web Client ────────────────
     function handleDisconnect(data) {
-      const { senderSocketId } = data;
-      console.log(`[Host] Explicit disconnect from ${senderSocketId}`);
-      cleanupPeer(senderSocketId);
+      const { senderSocketId } = data || {};
+      console.log(`[Host] Explicit disconnect signal for ${senderSocketId}`);
+      if (!senderSocketId || senderSocketId === 'all') {
+        for (const [socketId] of peers) {
+          cleanupPeer(socketId);
+        }
+        cleanupAllStreams();
+      } else {
+        cleanupPeer(senderSocketId);
+      }
     }
+
+    window.addEventListener('beforeunload', () => {
+      cleanupAllStreams();
+    });
 
     // ─── Listen for Signaling Events ────────────────────────────────
     window.onedesk.onWebRTCOffer(handleOffer);

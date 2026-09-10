@@ -205,7 +205,10 @@ app.whenReady().then(() => {
   });
 
   signaling.on('disconnected', () => {
-    console.log('[Main] Disconnected from signaling server');
+    console.log('[Main] Disconnected from signaling server — releasing active streams');
+    if (hostWindow && !hostWindow.isDestroyed()) {
+      hostWindow.webContents.send('webrtc-disconnect', { senderSocketId: 'all' });
+    }
   });
 
   // WebRTC signaling relay
