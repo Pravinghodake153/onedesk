@@ -165,6 +165,14 @@ class InputSimulator {
   // ─── Keyboard ───────────────────────────────────────────────────────────────
 
   async _handleKeyDown(event) {
+    // Check for desktop spaces / Mission Control navigation
+    // (Option + Arrows or Ctrl + Arrows for switching spaces and Mission Control)
+    const isArrow = (event.code === 'ArrowRight' || event.code === 'ArrowLeft' || event.code === 'ArrowUp' || event.code === 'ArrowDown');
+    if (event.isDesktopNav || (isArrow && (event.ctrlKey || event.altKey))) {
+      await this._handleDesktopNavigation(event);
+      return;
+    }
+
     const key = this._mapKey(event.code, event.key);
     if (key !== null) {
       // Handle modifier combos (e.g., Ctrl+C)
@@ -182,6 +190,22 @@ class InputSimulator {
   }
 
   async _handleKeyUp(event) {
+    const isArrow = (event.code === 'ArrowRight' || event.code === 'ArrowLeft' || event.code === 'ArrowUp' || event.code === 'ArrowDown');
+    if (event.isDesktopNav || isArrow) {
+      // Ensure all arrow keys and modifiers are cleanly released
+      try {
+        if (this.Key) {
+          if (event.code === 'ArrowRight') await this.keyboard.releaseKey(this.Key.Right);
+          if (event.code === 'ArrowLeft') await this.keyboard.releaseKey(this.Key.Left);
+          if (event.code === 'ArrowUp') await this.keyboard.releaseKey(this.Key.Up);
+          if (event.code === 'ArrowDown') await this.keyboard.releaseKey(this.Key.Down);
+          await this.keyboard.releaseKey(this.Key.LeftControl);
+          await this.keyboard.releaseKey(this.Key.LeftAlt);
+        }
+      } catch (e) {}
+      return;
+    }
+
     const key = this._mapKey(event.code, event.key);
     if (key !== null) {
       await this.keyboard.releaseKey(key);
@@ -189,6 +213,50 @@ class InputSimulator {
       const modifiers = this._getModifiers(event);
       for (const mod of modifiers) {
         await this.keyboard.releaseKey(mod);
+      }
+    }
+  }
+
+  async _handleDesktopNavigation(event) {
+    const isMac = process.platform === 'darwin';
+
+    if (isMac) {
+      const { exec } = require('child_process');
+      let keyCode = null;
+      if (event.code === 'ArrowRight') keyCode = 124;      // Next desktop / space
+      else if (event.code === 'ArrowLeft') keyCode = 123;  // Prev desktop / space
+      else if (event.code === 'ArrowUp') keyCode = 126;    // Mission Control (all windows)
+      else if (event.code === 'ArrowDown') keyCode = 125;  // Application windows (App Exposé)
+
+      if (keyCode) {
+        exec(`osascript -e 'tell application "System Events" to key code ${keyCode} using control down'`, (err) => {
+          if (err) console.warn('[Input] Desktop navigation AppleScript warning:', err.message);
+        });
+      }
+    }
+
+    // Also simulate via nut-js keyboard for universal cross-platform support
+    if (this.ready && this.keyboard && this.Key) {
+      try {
+        let key = null;
+        if (event.code === 'ArrowRight') key = this.Key.Right;
+        else if (event.code === 'ArrowLeft') key = this.Key.Left;
+        else if (event.code === 'ArrowUp') key = this.Key.Up;
+        else if (event.code === 'ArrowDown') key = this.Key.Down;
+
+        if (key !== null) {
+          // Release any Alt key so OS treats it strictly as Control+Arrow
+          try { await this.keyboard.releaseKey(this.Key.LeftAlt); } catch (e) {}
+          try { await this.keyboard.releaseKey(this.Key.RightAlt); } catch (e) {}
+
+          await this.keyboard.pressKey(this.Key.LeftControl);
+          await this.keyboard.pressKey(key);
+          await new Promise(r => setTimeout(r, 50));
+          await this.keyboard.releaseKey(key);
+          await this.keyboard.releaseKey(this.Key.LeftControl);
+        }
+      } catch (e) {
+        console.warn('[Input] nut-js navigation combo warning:', e.message);
       }
     }
   }

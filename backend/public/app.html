@@ -1153,6 +1153,9 @@
         <button class="m-key" onclick="sendSpecialKey('ArrowDown')">▼</button>
         <button class="m-key" onclick="sendSpecialKey('ArrowLeft')">◀</button>
         <button class="m-key" onclick="sendSpecialKey('ArrowRight')">▶</button>
+        <button class="m-key" onclick="sendDesktopNav('prev-space')" title="Switch to Left Desktop Space (Ctrl+Left)">⇦ Space</button>
+        <button class="m-key" onclick="sendDesktopNav('next-space')" title="Switch to Right Desktop Space (Ctrl+Right)">Space ⇨</button>
+        <button class="m-key" onclick="sendDesktopNav('mission-control')" title="Mission Control / All Windows (Ctrl+Up)">⛶ All Win</button>
       </div>
 
       <!-- Main Action Bar -->
@@ -2020,6 +2023,38 @@
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return; // In local cursor mode, let user use their own local shortcuts!
 
+        // Option (Alt) + Arrow keys: Remap to Ctrl + Arrow keys for remote desktop spaces & Mission Control
+        const isArrow = (e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'ArrowDown');
+        const isOptionNav = e.altKey && isArrow;
+        const isCtrlNav = e.ctrlKey && isArrow;
+
+        if (isOptionNav || isCtrlNav) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          let action = null;
+          let feedback = '';
+          if (e.code === 'ArrowRight') { action = 'next-space'; feedback = 'Next Desktop (Ctrl + →)'; }
+          else if (e.code === 'ArrowLeft') { action = 'prev-space'; feedback = 'Previous Desktop (Ctrl + ←)'; }
+          else if (e.code === 'ArrowUp') { action = 'mission-control'; feedback = 'All Windows (Ctrl + ↑)'; }
+          else if (e.code === 'ArrowDown') { action = 'app-expose'; feedback = 'Application Windows (Ctrl + ↓)'; }
+
+          sendInput({
+            type: 'keydown',
+            key: e.key,
+            code: e.code,
+            ctrlKey: true,
+            altKey: false,
+            shiftKey: e.shiftKey,
+            metaKey: e.metaKey,
+            isDesktopNav: true,
+            navAction: action
+          });
+
+          if (feedback) showClipboardToast(feedback);
+          return;
+        }
+
         e.preventDefault();
         sendInput({
           type: 'keydown', key: e.key, code: e.code,
@@ -2034,8 +2069,33 @@
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
 
+        const isArrow = (e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'ArrowDown');
+        if (isArrow) {
+          e.preventDefault();
+          e.stopPropagation();
+          sendInput({
+            type: 'keyup',
+            key: e.key,
+            code: e.code,
+            ctrlKey: true,
+            altKey: false,
+            shiftKey: e.shiftKey,
+            metaKey: e.metaKey,
+            isDesktopNav: true
+          });
+          return;
+        }
+
         e.preventDefault();
-        sendInput({ type: 'keyup', key: e.key, code: e.code });
+        sendInput({
+          type: 'keyup',
+          key: e.key,
+          code: e.code,
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          metaKey: e.metaKey
+        });
       }, { signal });
 
       // ─── Touch & Mobile Gestures ────────────────────────────────
@@ -2562,6 +2622,44 @@
       }, 50);
 
       if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function sendDesktopNav(action) {
+      const codeMap = {
+        'next-space': 'ArrowRight',
+        'prev-space': 'ArrowLeft',
+        'mission-control': 'ArrowUp',
+        'app-expose': 'ArrowDown'
+      };
+      const code = codeMap[action] || 'ArrowUp';
+      sendInput({
+        type: 'keydown',
+        key: code,
+        code: code,
+        ctrlKey: true,
+        altKey: false,
+        isDesktopNav: true,
+        navAction: action
+      });
+      setTimeout(() => {
+        sendInput({
+          type: 'keyup',
+          key: code,
+          code: code,
+          ctrlKey: true,
+          altKey: false,
+          isDesktopNav: true
+        });
+      }, 50);
+
+      const navNames = {
+        'next-space': 'Next Desktop (Ctrl + →)',
+        'prev-space': 'Previous Desktop (Ctrl + ←)',
+        'mission-control': 'Mission Control: All Windows (Ctrl + ↑)',
+        'app-expose': 'Application Windows (Ctrl + ↓)'
+      };
+      if (navNames[action]) showClipboardToast(navNames[action]);
+      if (navigator.vibrate) navigator.vibrate(20);
     }
 
     function toggleVirtualKeyboard() {
