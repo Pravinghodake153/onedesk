@@ -1079,6 +1079,17 @@
       </div>
     </div>
 
+    <!-- Inactivity Auto-Off Countdown Warning Banner -->
+    <div id="inactivityWarningBanner" style="display: none; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); max-width: 520px; width: 92%; background: rgba(245, 166, 35, 0.96); backdrop-filter: blur(16px); border-radius: 12px; padding: 12px 18px; z-index: 110; box-shadow: 0 12px 32px rgba(0,0,0,0.55); color: #111; border: 1px solid rgba(255,255,255,0.4); font-weight: 500; font-size: 13.5px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">⏱️</span>
+          <span>Inactivity: Screen share auto-off in <strong id="inactivityCountdownText">30s</strong> to save energy.</span>
+        </div>
+        <button onclick="recordUserActivity(true)" style="background: rgba(0,0,0,0.85); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Stay Connected</button>
+      </div>
+    </div>
+
     <div class="viewer-connecting" id="viewerConnecting">
       <div class="spinner"></div>
       <h2 id="viewerTargetName">Connecting...</h2>
@@ -1227,6 +1238,63 @@
     let streamMode = 'live'; // 'live' = high FPS low quality, 'clear' = low FPS high quality
     let fullscreenEdgeTimer = null;
 
+    // Inactivity Auto-Off (5-minute energy saver)
+    let lastUserActivityTime = Date.now();
+    let inactivityCheckInterval = null;
+    let lastActivityHeartbeatSent = 0;
+    const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const INACTIVITY_WARNING_MS = 4.5 * 60 * 1000; // 4.5 minutes (30s before cutoff)
+
+    function recordUserActivity(forceHeartbeat = false) {
+      lastUserActivityTime = Date.now();
+      const banner = document.getElementById('inactivityWarningBanner');
+      if (banner && banner.style.display !== 'none') {
+        banner.style.display = 'none';
+      }
+
+      const now = Date.now();
+      if (forceHeartbeat || (now - lastActivityHeartbeatSent > 10000)) {
+        lastActivityHeartbeatSent = now;
+        if (heartbeatChannel && heartbeatChannel.readyState === 'open') {
+          try {
+            heartbeatChannel.send(JSON.stringify({ type: 'activity', t: now }));
+          } catch (e) {}
+        }
+      }
+    }
+
+    function startInactivityMonitor() {
+      if (inactivityCheckInterval) clearInterval(inactivityCheckInterval);
+      lastUserActivityTime = Date.now();
+
+      inactivityCheckInterval = setInterval(() => {
+        if (!peerConnection || !document.getElementById('viewerPage').classList.contains('active')) {
+          return;
+        }
+
+        const elapsed = Date.now() - lastUserActivityTime;
+        const banner = document.getElementById('inactivityWarningBanner');
+        const countdownText = document.getElementById('inactivityCountdownText');
+
+        if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+          console.warn('[Web] Inactivity timeout: 5 minutes without activity. Auto-closing screen share to save energy.');
+          if (banner) banner.style.display = 'none';
+          showClipboardToast('⚡ Screen share auto-closed after 5 minutes of inactivity (Energy Saver)');
+          disconnectViewer();
+        } else if (elapsed >= INACTIVITY_WARNING_MS) {
+          const remainingSec = Math.max(1, Math.ceil((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+          if (banner) {
+            banner.style.display = 'block';
+            if (countdownText) countdownText.textContent = remainingSec + 's';
+          }
+        } else {
+          if (banner && banner.style.display !== 'none') {
+            banner.style.display = 'none';
+          }
+        }
+      }, 1000);
+    }
+
     let showHiddenFiles = false;
     let lastDirectoryItems = [];
 
@@ -1336,6 +1404,11 @@
 
       socket.on('stream-error', (data) => {
         console.warn('[Web] Stream error reported by host:', data);
+        if (data && data.message && data.message.toLowerCase().includes('inactivity')) {
+          showClipboardToast('⚡ ' + data.message);
+          disconnectViewer(false);
+          return;
+        }
         const banner = document.getElementById('streamDiagnosticBanner');
         const text = document.getElementById('streamDiagnosticText');
         if (banner && text) {
@@ -1753,6 +1826,7 @@
       showPage('viewerPage');
       document.getElementById('viewerTargetName').textContent = targetDevice.deviceName;
       applyAdaptiveDeviceControls();
+      startInactivityMonitor();
 
       const remoteVideo = document.getElementById('remoteVideo');
       const cursorModeBar = document.getElementById('cursorModeBar');
@@ -1869,6 +1943,10 @@
           if (data.type === 'ping') {
             // Immediately respond to host ping to confirm active listening
             heartbeatChannel.send(JSON.stringify({ type: 'pong', t: Date.now() }));
+          } else if (data.type === 'inactivity-timeout') {
+            console.warn('[Web] Inactivity timeout from host:', data.reason);
+            showClipboardToast('⚡ ' + (data.reason || 'Screen share turned off due to 5 minutes of inactivity'));
+            disconnectViewer();
           }
         } catch (e) {}
       };
@@ -1956,6 +2034,13 @@
       const signal = inputAbortController.signal;
 
       const video = document.getElementById('remoteVideo');
+
+      // Keep activity alive on any pointer interaction in viewer
+      document.addEventListener('pointermove', () => {
+        if (document.getElementById('viewerPage').classList.contains('active')) {
+          recordUserActivity();
+        }
+      }, { passive: true, signal });
 
       video.addEventListener('mousemove', throttle((e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -2767,6 +2852,7 @@
     }
 
     function sendInput(event) {
+      recordUserActivity();
       if (inputChannel && inputChannel.readyState === 'open') {
         inputChannel.send(JSON.stringify(event));
       }
@@ -3034,6 +3120,12 @@
         clearInterval(statsInterval);
         statsInterval = null;
       }
+      if (inactivityCheckInterval) {
+        clearInterval(inactivityCheckInterval);
+        inactivityCheckInterval = null;
+      }
+      const inactBanner = document.getElementById('inactivityWarningBanner');
+      if (inactBanner) inactBanner.style.display = 'none';
 
       // Abort all input event listeners cleanly
       if (inputAbortController) {

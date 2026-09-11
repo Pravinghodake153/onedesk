@@ -268,8 +268,10 @@
         fileChannel: null,
         heartbeatChannel: null,
         lastHeard: Date.now(),
+        lastActivity: Date.now(),
         heartbeatTimer: null,
-        watchdogTimer: null
+        watchdogTimer: null,
+        inactivityTimer: null
       };
 
       pc.ondatachannel = (event) => {
@@ -285,6 +287,9 @@
                 const data = JSON.parse(msg.data);
                 if (data.type === 'pong' || data.type === 'listening') {
                   peerData.lastHeard = Date.now();
+                } else if (data.type === 'activity') {
+                  peerData.lastHeard = Date.now();
+                  peerData.lastActivity = Date.now();
                 } else if (data.type === 'stop-listening') {
                   console.log(`[Host] Client ${senderSocketId} explicitly stopped listening — shutting down stream`);
                   cleanupPeer(senderSocketId);
@@ -298,6 +303,7 @@
             channel.onmessage = (msg) => {
               try {
                 peerData.lastHeard = Date.now();
+                peerData.lastActivity = Date.now();
                 const inputEvent = JSON.parse(msg.data);
 
                 // Quality mode change from client
@@ -320,6 +326,7 @@
             channel.onmessage = (msg) => {
               try {
                 peerData.lastHeard = Date.now();
+                peerData.lastActivity = Date.now();
                 const clipboardData = JSON.parse(msg.data);
                 window.onedesk.writeClipboardFromRemote(clipboardData);
               } catch (e) {
@@ -333,6 +340,7 @@
             channel.onmessage = (msg) => {
               try {
                 peerData.lastHeard = Date.now();
+                peerData.lastActivity = Date.now();
                 const fileMsg = JSON.parse(msg.data);
                 window.onedesk.receiveFileMessage(fileMsg);
               } catch (e) {
@@ -359,6 +367,36 @@
           cleanupPeer(senderSocketId);
         }
       }, 1000);
+
+      // 5-Minute Inactivity Auto-Off (Energy Saver & Privacy)
+      const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutes
+      peerData.inactivityTimer = setInterval(() => {
+        const idle = Date.now() - peerData.lastActivity;
+        if (idle >= INACTIVITY_LIMIT_MS) {
+          console.warn(`[Host Inactivity] No activity for 5 minutes from ${senderSocketId}. Auto-stopping screen share to save energy!`);
+
+          try {
+            if (peerData.heartbeatChannel && peerData.heartbeatChannel.readyState === 'open') {
+              peerData.heartbeatChannel.send(JSON.stringify({
+                type: 'inactivity-timeout',
+                reason: 'Screen share automatically turned off due to 5 minutes of inactivity (Energy Saver).'
+              }));
+            }
+          } catch (e) {}
+
+          try {
+            window.onedesk.sendSignal('stream-error', {
+              targetSocketId: senderSocketId,
+              feature: peerData.feature,
+              message: 'Screen share automatically turned off due to 5 minutes of inactivity (Energy Saver).'
+            });
+          } catch (e) {}
+
+          setTimeout(() => {
+            cleanupPeer(senderSocketId);
+          }, 300);
+        }
+      }, 5000);
 
       // Connection state management
       pc.onconnectionstatechange = () => {
@@ -495,6 +533,7 @@
       if (peer) {
         if (peer.heartbeatTimer) clearInterval(peer.heartbeatTimer);
         if (peer.watchdogTimer) clearInterval(peer.watchdogTimer);
+        if (peer.inactivityTimer) clearInterval(peer.inactivityTimer);
         if (peer.heartbeatChannel) {
           try { peer.heartbeatChannel.close(); } catch (e) {}
         }
