@@ -5,7 +5,9 @@
   "description": "Seamlessly browses your host machine sessions in a native incognito window.",
   "permissions": [
     "cookies",
-    "windows"
+    "windows",
+    "clipboardRead",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
