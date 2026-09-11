@@ -1962,10 +1962,21 @@
         if (cursorMode !== 'remote') return;
 
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
-        if (!coords.inside) return; // Don't move mouse into letterbox/pillarbox margins
+        // If mouse/trackpad button is held down (dragging), clamp coords so drag isn't lost outside margins
+        if (!coords.inside) {
+          if (e.buttons > 0) {
+            coords.x = Math.max(0, Math.min(1, coords.x));
+            coords.y = Math.max(0, Math.min(1, coords.y));
+          } else {
+            return;
+          }
+        }
 
         sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
       }, 16), { signal });
+
+      let lastMouseDownButton = -1;
+      let lastMouseDownTime = 0;
 
       video.addEventListener('mousedown', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -1974,7 +1985,16 @@
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
         if (!coords.inside) return;
 
-        sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: e.button });
+        let button = e.button;
+        // On macOS laptop trackpad, Control + Click is the native secondary (right) click setting
+        const isMac = (navigator.platform || '').toUpperCase().indexOf('MAC') >= 0 || (navigator.userAgent || '').toUpperCase().indexOf('MAC') >= 0;
+        if (isMac && e.ctrlKey && button === 0) {
+          button = 2;
+        }
+
+        lastMouseDownButton = button;
+        lastMouseDownTime = Date.now();
+        sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button });
       }, { signal });
 
       video.addEventListener('mouseup', (e) => {
@@ -1982,7 +2002,13 @@
         if (cursorMode !== 'remote') return;
 
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
-        sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: e.button });
+        let button = e.button;
+        const isMac = (navigator.platform || '').toUpperCase().indexOf('MAC') >= 0 || (navigator.userAgent || '').toUpperCase().indexOf('MAC') >= 0;
+        if (isMac && e.ctrlKey && button === 0) {
+          button = 2;
+        }
+
+        sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button });
       }, { signal });
 
       video.addEventListener('wheel', (e) => {
@@ -1994,6 +2020,7 @@
           type: 'scroll',
           deltaX: e.deltaX,
           deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
           x: coords.inside ? coords.x : undefined,
           y: coords.inside ? coords.y : undefined
         });
@@ -2002,6 +2029,18 @@
       video.addEventListener('contextmenu', (e) => {
         if (cursorMode === 'remote') {
           e.preventDefault();
+          const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
+          if (!coords.inside) return;
+
+          // Touchpad secondary click support:
+          // If browser fired contextmenu without a prior mousedown button:2, synthesize right click
+          // so all laptop touchpad settings (two-finger tap, corner click, ctrl+click) work 100% identically!
+          if (lastMouseDownButton !== 2 || (Date.now() - lastMouseDownTime > 300)) {
+            sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: 2 });
+            setTimeout(() => {
+              sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: 2 });
+            }, 30);
+          }
         }
       }, { signal });
 
@@ -2027,12 +2066,13 @@
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return; // In local cursor mode, let user use their own local shortcuts!
 
-        // Option (Alt) + Arrow keys: Remap to Ctrl + Arrow keys for remote desktop spaces & Mission Control
+        // Desktop spaces & Mission Control navigation:
+        // On laptop/desktop keyboards, Ctrl + Arrow is the native shortcut.
+        // Option + Arrow remains standard word/text navigation on laptops (no change!).
         const isArrow = (e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'ArrowDown');
-        const isOptionNav = e.altKey && isArrow;
-        const isCtrlNav = e.ctrlKey && isArrow;
+        const isCtrlNav = e.ctrlKey && isArrow && !e.altKey;
 
-        if (isOptionNav || isCtrlNav) {
+        if (isCtrlNav) {
           e.preventDefault();
           e.stopPropagation();
 
@@ -2074,7 +2114,8 @@
         if (cursorMode !== 'remote') return;
 
         const isArrow = (e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'ArrowUp' || e.code === 'ArrowDown');
-        if (isArrow) {
+        const isCtrlNav = isArrow && e.ctrlKey && !e.altKey;
+        if (isCtrlNav) {
           e.preventDefault();
           e.stopPropagation();
           sendInput({
@@ -2124,6 +2165,7 @@
       }
 
       video.addEventListener('touchstart', (e) => {
+        if (!isMobileClient()) return; // Keep laptop touchpad gestures and clicks 100% native
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
@@ -2187,6 +2229,7 @@
       }, { passive: false, signal });
 
       video.addEventListener('touchmove', throttle((e) => {
+        if (!isMobileClient()) return; // Keep laptop touchpad gestures and clicks 100% native
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
@@ -2262,6 +2305,7 @@
       }, 16), { passive: false, signal });
 
       video.addEventListener('touchend', (e) => {
+        if (!isMobileClient()) return; // Keep laptop touchpad gestures and clicks 100% native
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
@@ -2344,10 +2388,12 @@
         }
       }, { signal });
 
-      // Double-click video to toggle fullscreen
+      // Pass native laptop trackpad double-click directly to remote desktop
       video.addEventListener('dblclick', (e) => {
         if (cursorMode !== 'remote') return;
-        toggleFullscreen();
+        const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
+        if (!coords.inside) return;
+        sendInput({ type: 'doubleclick', x: coords.x, y: coords.y });
       }, { signal });
     }
 

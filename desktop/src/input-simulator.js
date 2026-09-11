@@ -108,12 +108,16 @@ class InputSimulator {
   async _handleMouseMove(event) {
     const x = Math.round(event.x * this.screenWidth);
     const y = Math.round(event.y * this.screenHeight);
+    this._lastMouseX = x;
+    this._lastMouseY = y;
     await this.mouse.setPosition(new this.Point(x, y));
   }
 
   async _handleMouseDown(event) {
     const x = Math.round(event.x * this.screenWidth);
     const y = Math.round(event.y * this.screenHeight);
+    this._lastMouseX = x;
+    this._lastMouseY = y;
     await this.mouse.setPosition(new this.Point(x, y));
 
     const button = this._mapButton(event.button);
@@ -123,6 +127,8 @@ class InputSimulator {
   async _handleMouseUp(event) {
     const x = Math.round(event.x * this.screenWidth);
     const y = Math.round(event.y * this.screenHeight);
+    this._lastMouseX = x;
+    this._lastMouseY = y;
     await this.mouse.setPosition(new this.Point(x, y));
 
     const button = this._mapButton(event.button);
@@ -132,32 +138,58 @@ class InputSimulator {
   async _handleDoubleClick(event) {
     const x = Math.round(event.x * this.screenWidth);
     const y = Math.round(event.y * this.screenHeight);
+    this._lastMouseX = x;
+    this._lastMouseY = y;
     await this.mouse.setPosition(new this.Point(x, y));
     await this.mouse.doubleClick(this.Button.LEFT);
   }
 
   async _handleScroll(event) {
-    // If pointer coordinates are provided, move there first so target window receives scroll
+    // If pointer coordinates are provided and moved significantly, position cursor
     if (typeof event.x === 'number' && typeof event.y === 'number') {
       const x = Math.round(event.x * this.screenWidth);
       const y = Math.round(event.y * this.screenHeight);
-      await this.mouse.setPosition(new this.Point(x, y));
-    }
-
-    if (event.deltaY) {
-      const amountY = Math.max(1, Math.round(Math.abs(event.deltaY) / 10));
-      if (event.deltaY > 0) {
-        await this.mouse.scrollDown(amountY);
-      } else {
-        await this.mouse.scrollUp(amountY);
+      const dist = Math.hypot((this._lastMouseX ?? 0) - x, (this._lastMouseY ?? 0) - y);
+      if (dist > 12) {
+        this._lastMouseX = x;
+        this._lastMouseY = y;
+        await this.mouse.setPosition(new this.Point(x, y));
       }
     }
-    if (event.deltaX) {
-      const amountX = Math.max(1, Math.round(Math.abs(event.deltaX) / 10));
-      if (event.deltaX > 0) {
-        await this.mouse.scrollRight(amountX);
+
+    // Accumulate scroll deltas for smooth, natural trackpad inertia
+    this._accumScrollY = (this._accumScrollY || 0) + (event.deltaY || 0);
+    this._accumScrollX = (this._accumScrollX || 0) + (event.deltaX || 0);
+
+    // Clear accumulated remainder if user stops scrolling for 120ms
+    clearTimeout(this._scrollResetTimer);
+    this._scrollResetTimer = setTimeout(() => {
+      this._accumScrollY = 0;
+      this._accumScrollX = 0;
+    }, 120);
+
+    // Proportional stepping:
+    // deltaMode 1 (DOM_DELTA_LINE, mouse wheel notch) -> 1 unit step
+    // deltaMode 0 (DOM_DELTA_PIXEL, laptop precision trackpad) -> threshold 10
+    const STEP = (event.deltaMode === 1) ? 1 : 10;
+
+    const ticksY = Math.trunc(this._accumScrollY / STEP);
+    if (ticksY !== 0) {
+      this._accumScrollY -= ticksY * STEP;
+      if (ticksY > 0) {
+        await this.mouse.scrollDown(Math.abs(ticksY));
       } else {
-        await this.mouse.scrollLeft(amountX);
+        await this.mouse.scrollUp(Math.abs(ticksY));
+      }
+    }
+
+    const ticksX = Math.trunc(this._accumScrollX / STEP);
+    if (ticksX !== 0) {
+      this._accumScrollX -= ticksX * STEP;
+      if (ticksX > 0) {
+        await this.mouse.scrollRight(Math.abs(ticksX));
+      } else {
+        await this.mouse.scrollLeft(Math.abs(ticksX));
       }
     }
   }
@@ -175,9 +207,10 @@ class InputSimulator {
 
   async _handleKeyDown(event) {
     // Check for desktop spaces / Mission Control navigation
-    // (Option + Arrows or Ctrl + Arrows for switching spaces and Mission Control)
+    // Ctrl + Arrows for switching spaces and Mission Control.
+    // Option + Arrows is preserved as native word/line text navigation on laptops!
     const isArrow = (event.code === 'ArrowRight' || event.code === 'ArrowLeft' || event.code === 'ArrowUp' || event.code === 'ArrowDown');
-    if (event.isDesktopNav || (isArrow && (event.ctrlKey || event.altKey))) {
+    if (event.isDesktopNav || (isArrow && event.ctrlKey && !event.altKey)) {
       await this._handleDesktopNavigation(event);
       return;
     }
@@ -200,8 +233,8 @@ class InputSimulator {
 
   async _handleKeyUp(event) {
     const isArrow = (event.code === 'ArrowRight' || event.code === 'ArrowLeft' || event.code === 'ArrowUp' || event.code === 'ArrowDown');
-    if (event.isDesktopNav || isArrow) {
-      // Ensure all arrow keys and modifiers are cleanly released
+    if (event.isDesktopNav || (isArrow && event.ctrlKey && !event.altKey)) {
+      // Ensure arrow keys and Ctrl modifier are cleanly released
       try {
         if (this.Key) {
           if (event.code === 'ArrowRight') await this.keyboard.releaseKey(this.Key.Right);
@@ -209,7 +242,6 @@ class InputSimulator {
           if (event.code === 'ArrowUp') await this.keyboard.releaseKey(this.Key.Up);
           if (event.code === 'ArrowDown') await this.keyboard.releaseKey(this.Key.Down);
           await this.keyboard.releaseKey(this.Key.LeftControl);
-          await this.keyboard.releaseKey(this.Key.LeftAlt);
         }
       } catch (e) {}
       return;
