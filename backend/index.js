@@ -59,7 +59,7 @@ let lastIceFetch = 0;
 
 async function getIceServers() {
   const appName = process.env.METERED_APP_NAME || 'onedesk';
-  const apiKey = process.env.METERED_API_KEY;
+  const apiKey = process.env.METERED_API_KEY || '72dd18d9c14b56eaf31c90650f5b4d6fb807';
   const secretKey = process.env.METERED_SECRET_KEY || 'zHrh8d9uUlmBIQkWsKfNFOtWi-4nh8ieUxR2ZfKAl-k9Q0jo';
 
   if (cachedIceServers && (Date.now() - lastIceFetch < 3600000)) {
@@ -73,9 +73,15 @@ async function getIceServers() {
       if (resp.ok) {
         const data = await resp.json();
         if (Array.isArray(data) && data.length > 0) {
-          cachedIceServers = data;
+          const servers = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
+            ...data
+          ];
+          cachedIceServers = servers;
           lastIceFetch = Date.now();
-          console.log('[TURN] Successfully fetched dynamic credentials using API key');
+          console.log('[TURN] Successfully fetched dynamic credentials using API key:', servers.length);
           return cachedIceServers;
         }
       }

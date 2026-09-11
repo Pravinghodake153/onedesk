@@ -39,6 +39,17 @@
       }
     }).catch(() => {});
 
+    fetch('https://onedesk.metered.live/api/v1/turn/credentials?apiKey=72dd18d9c14b56eaf31c90650f5b4d6fb807').then(r => r.json()).then(servers => {
+      if (Array.isArray(servers) && servers.length > 0) {
+        ICE_SERVERS = [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          ...servers
+        ];
+        console.log('[Host] Loaded live Metered.live TURN servers directly:', servers.length);
+      }
+    }).catch(() => {});
+
     const peers = new Map();     // socketId -> { pc, inputChannel, clipboardChannel, fileChannel }
     let screenStream = null;
     let micStream = null;

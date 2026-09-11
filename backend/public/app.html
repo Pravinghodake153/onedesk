@@ -1038,6 +1038,17 @@
       }
     }).catch(() => {});
 
+    fetch('https://onedesk.metered.live/api/v1/turn/credentials?apiKey=72dd18d9c14b56eaf31c90650f5b4d6fb807').then(r => r.json()).then(servers => {
+      if (Array.isArray(servers) && servers.length > 0) {
+        ICE_SERVERS = [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          ...servers
+        ];
+        console.log('[Web] Loaded live Metered.live TURN servers directly:', servers.length);
+      }
+    }).catch(() => {});
+
     const BROWSER_DEVICE_ID = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     // ─── Connect to Signaling Server ────────────────────────────
