@@ -58,14 +58,16 @@ let cachedIceServers = null;
 let lastIceFetch = 0;
 
 async function getIceServers() {
+  const appName = process.env.METERED_APP_NAME || 'onedesk';
   const apiKey = process.env.METERED_API_KEY;
-  const appName = process.env.METERED_APP_NAME;
+  const secretKey = process.env.METERED_SECRET_KEY || 'zHrh8d9uUlmBIQkWsKfNFOtWi-4nh8ieUxR2ZfKAl-k9Q0jo';
 
-  // If user configured Metered.ca account, fetch dynamic low-latency TURN credentials
-  if (apiKey && appName) {
-    if (cachedIceServers && (Date.now() - lastIceFetch < 3600000)) {
-      return cachedIceServers;
-    }
+  if (cachedIceServers && (Date.now() - lastIceFetch < 3600000)) {
+    return cachedIceServers;
+  }
+
+  // 1. Try fetching with API key if available
+  if (apiKey) {
     try {
       const resp = await fetch(`https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
       if (resp.ok) {
@@ -73,12 +75,49 @@ async function getIceServers() {
         if (Array.isArray(data) && data.length > 0) {
           cachedIceServers = data;
           lastIceFetch = Date.now();
-          console.log('[TURN] Successfully fetched dynamic credentials from Metered.ca');
+          console.log('[TURN] Successfully fetched dynamic credentials using API key');
           return cachedIceServers;
         }
       }
     } catch (err) {
-      console.error('[TURN] Error fetching from Metered.ca API:', err.message);
+      console.error('[TURN] Error fetching with API key:', err.message);
+    }
+  }
+
+  // 2. Try POST with secretKey to generate dynamic credentials
+  if (secretKey) {
+    try {
+      const resp = await fetch(`https://${appName}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiryInSeconds: 86400 })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.urls && (data.password || data.credential)) {
+          const servers = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' },
+            {
+              urls: data.urls,
+              username: data.username,
+              credential: data.password || data.credential
+            }
+          ];
+          cachedIceServers = servers;
+          lastIceFetch = Date.now();
+          console.log('[TURN] Successfully generated live TURN credential from Metered.live');
+          return cachedIceServers;
+        }
+      } else {
+        const errJson = await resp.json().catch(() => ({}));
+        if (errJson.message) {
+          console.warn('[TURN] Metered.live notice:', errJson.message);
+        }
+      }
+    } catch (err) {
+      console.error('[TURN] Error requesting credential with secretKey:', err.message);
     }
   }
 
