@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification, systemPreferences, session } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, desktopCapturer, screen, Notification, systemPreferences, session, powerSaveBlocker } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -210,6 +210,14 @@ app.whenReady().then(() => {
 
   // Setup IPC
   setupIPC();
+
+  // Prevent macOS from suspending OneDesk so it stays online 24/7 for remote connections
+  try {
+    const powerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    console.log(`[Main] PowerSaveBlocker active (ID: ${powerBlockerId}) — remote access keep-awake enabled`);
+  } catch (err) {
+    console.warn('[Main] PowerSaveBlocker error:', err.message);
+  }
 
   // Initialize production modules
   inputSimulator = new InputSimulator();
