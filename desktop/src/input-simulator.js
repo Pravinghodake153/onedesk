@@ -74,6 +74,9 @@ class InputSimulator {
         case 'scroll':
           await this._handleScroll(event);
           break;
+        case 'doubleClick':
+          await this._handleDoubleClick(event);
+          break;
         case 'keydown':
           await this._handleKeyDown(event);
           break;
@@ -117,12 +120,36 @@ class InputSimulator {
     await this.mouse.releaseButton(button);
   }
 
+  async _handleDoubleClick(event) {
+    const x = Math.round(event.x * this.screenWidth);
+    const y = Math.round(event.y * this.screenHeight);
+    await this.mouse.setPosition(new this.Point(x, y));
+    await this.mouse.doubleClick(this.Button.LEFT);
+  }
+
   async _handleScroll(event) {
-    const amount = Math.round(event.deltaY / 10); // Normalize scroll amount
-    if (amount > 0) {
-      await this.mouse.scrollDown(Math.abs(amount));
-    } else if (amount < 0) {
-      await this.mouse.scrollUp(Math.abs(amount));
+    // If pointer coordinates are provided, move there first so target window receives scroll
+    if (typeof event.x === 'number' && typeof event.y === 'number') {
+      const x = Math.round(event.x * this.screenWidth);
+      const y = Math.round(event.y * this.screenHeight);
+      await this.mouse.setPosition(new this.Point(x, y));
+    }
+
+    if (event.deltaY) {
+      const amountY = Math.max(1, Math.round(Math.abs(event.deltaY) / 10));
+      if (event.deltaY > 0) {
+        await this.mouse.scrollDown(amountY);
+      } else {
+        await this.mouse.scrollUp(amountY);
+      }
+    }
+    if (event.deltaX) {
+      const amountX = Math.max(1, Math.round(Math.abs(event.deltaX) / 10));
+      if (event.deltaX > 0) {
+        await this.mouse.scrollRight(amountX);
+      } else {
+        await this.mouse.scrollLeft(amountX);
+      }
     }
   }
 

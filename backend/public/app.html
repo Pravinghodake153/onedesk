@@ -628,6 +628,123 @@
     }
     .clipboard-toast.show { transform: translateY(0); }
 
+    /* ─── Mobile Touch Control Dock & Special Keys ───────────────── */
+    .mobile-dock {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 45;
+      max-width: 96vw;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .mobile-main-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(18, 18, 28, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .m-dock-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+      touch-action: manipulation;
+    }
+    .m-dock-btn:active {
+      transform: scale(0.94);
+    }
+    .m-dock-btn.active {
+      background: #0A84FF;
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 12px rgba(10, 132, 255, 0.6);
+    }
+
+    .mobile-special-keys {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 5px;
+      padding: 8px 12px;
+      background: rgba(18, 18, 28, 0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      max-width: 480px;
+    }
+
+    .m-key {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+    .m-key:active {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(0.92);
+    }
+    .m-key.latch {
+      background: #FF9F0A;
+      color: #000;
+      border-color: #FF9F0A;
+      box-shadow: 0 0 10px rgba(255, 159, 10, 0.5);
+    }
+
+    /* Touch visual ripple feedback */
+    .touch-ripple {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #0A84FF;
+      background: rgba(10, 132, 255, 0.25);
+      transform: translate(-50%, -50%) scale(0.2);
+      pointer-events: none;
+      z-index: 100;
+      animation: touchRippleAnim 0.4s ease-out forwards;
+    }
+    .touch-ripple.right-click {
+      border-color: #FF9F0A;
+      background: rgba(255, 159, 10, 0.35);
+    }
+    @keyframes touchRippleAnim {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.3); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+    }
+
     /* ─── Streaming Mode Pill ────────────────────────────────────── */
     .stream-mode-pill {
       display: inline-flex;
@@ -957,15 +1074,66 @@
 
     <!-- Minimal Overlay controls -->
     <div id="viewerOverlayControls" style="position: absolute; top: 16px; right: 16px; z-index: 20; display: flex; gap: 8px;">
+      <button class="tb-btn" id="btnKeyboardToggle" title="Toggle Soft Keyboard" onclick="toggleVirtualKeyboard()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+      </button>
+      <button class="tb-btn" id="btnMobileControlsToggle" title="Mobile Controls & Function Keys" onclick="toggleMobileDock()" style="background: rgba(10,132,255,0.3); color: #0A84FF; backdrop-filter: blur(10px);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+      </button>
       <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
       </button>
       <button class="tb-btn" title="Fullscreen" onclick="toggleFullscreen()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 3 3 3 3 8"></polyline><polyline points="16 3 21 3 21 8"></polyline><polyline points="8 21 3 21 3 16"></polyline><polyline points="16 21 21 21 21 16"></polyline></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 3 3 3 3 8"></polyline><polyline points="16 3 21 3 21 8"></polyline><polyline points="8 21 3 21 3 16"></polyline><polyline points="16 21 21 21 21 16"></polyline></svg>
       </button>
       <button class="tb-btn" title="Disconnect" onclick="disconnectViewer()" style="background: rgba(255,69,58,0.2); color: #ff453a; backdrop-filter: blur(10px);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
+    </div>
+
+    <!-- Mobile Touch Control Dock -->
+    <div id="mobileControlDock" class="mobile-dock">
+      <!-- Special Keys Row (Collapsible) -->
+      <div id="mobileSpecialKeys" class="mobile-special-keys" style="display: none;">
+        <button class="m-key" onclick="sendSpecialKey('Escape')">Esc</button>
+        <button class="m-key" onclick="sendSpecialKey('Tab')">Tab</button>
+        <button class="m-key" id="btnModifierCtrl" onclick="toggleModifier('ctrl')">Ctrl</button>
+        <button class="m-key" id="btnModifierAlt" onclick="toggleModifier('alt')">Alt</button>
+        <button class="m-key" id="btnModifierMeta" onclick="toggleModifier('meta')">Cmd/Win</button>
+        <button class="m-key" id="btnModifierShift" onclick="toggleModifier('shift')">Shift</button>
+        <button class="m-key" onclick="sendSpecialKey('Backspace')">⌫</button>
+        <button class="m-key" onclick="sendSpecialKey('Enter')">↵ Enter</button>
+        <button class="m-key" onclick="sendSpecialKey('Space')">Space</button>
+        <button class="m-key" onclick="sendSpecialKey('ArrowUp')">▲</button>
+        <button class="m-key" onclick="sendSpecialKey('ArrowDown')">▼</button>
+        <button class="m-key" onclick="sendSpecialKey('ArrowLeft')">◀</button>
+        <button class="m-key" onclick="sendSpecialKey('ArrowRight')">▶</button>
+      </div>
+
+      <!-- Main Action Bar -->
+      <div class="mobile-main-bar">
+        <button class="m-dock-btn active" id="btnTouchModeDirect" onclick="setMobileTouchMode('direct')" title="Direct Tap mode">
+          <span>🎯 Touch</span>
+        </button>
+        <button class="m-dock-btn" id="btnTouchModeTrackpad" onclick="setMobileTouchMode('trackpad')" title="Trackpad gliding mode">
+          <span>🖱️ Trackpad</span>
+        </button>
+        <button class="m-dock-btn" id="btnTouchModeScroll" onclick="setMobileTouchMode('scroll')" title="Scroll Wheel mode">
+          <span>📜 Scroll</span>
+        </button>
+        <button class="m-dock-btn" onclick="sendClick(0)" title="Left Click">
+          <span>L-Click</span>
+        </button>
+        <button class="m-dock-btn" onclick="sendClick(2)" title="Right Click">
+          <span>R-Click</span>
+        </button>
+        <button class="m-dock-btn" onclick="toggleVirtualKeyboard()" title="Show/Hide Soft Keyboard">
+          <span>⌨️ Keys</span>
+        </button>
+        <button class="m-dock-btn" onclick="toggleSpecialKeysRow()" title="Toggle Extra Function Keys">
+          <span>⚙️ Extra</span>
+        </button>
+      </div>
     </div>
 
     <!-- Fullscreen edge-reveal exit bar -->
@@ -1820,25 +1988,87 @@
         sendInput({ type: 'keyup', key: e.key, code: e.code });
       }, { signal });
 
-      // Touch events for mobile
-      let touchStartPos = { x: 0, y: 0 };
+      // ─── Touch & Mobile Gestures ────────────────────────────────
+      let touchStartPos = { clientX: 0, clientY: 0, x: 0, y: 0 };
+      let lastTouchClient = { x: 0, y: 0 };
       let touchStartTime = 0;
-      let isDragging = false;
-      let touchCount = 0;
+      let isTwoFingerScroll = false;
+      let lastScrollClient = { x: 0, y: 0 };
+      let longPressTimer = null;
+      let isLongPressed = false;
+      let lastTapTime = 0;
+      let isDoubleTapDrag = false;
+      let hasTouchMoved = false;
+
+      function spawnTouchRipple(clientX, clientY, isRightClick = false) {
+        const ripple = document.createElement('div');
+        ripple.className = 'touch-ripple' + (isRightClick ? ' right-click' : '');
+        ripple.style.left = clientX + 'px';
+        ripple.style.top = clientY + 'px';
+        document.body.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 450);
+      }
 
       video.addEventListener('touchstart', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
+        if (cursorMode !== 'remote') return;
         e.preventDefault();
-        touchCount = e.touches.length;
-        const touch = e.touches[0];
-        const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
-        
-        touchStartPos = { x: coords.x, y: coords.y };
-        touchStartTime = Date.now();
-        isDragging = false;
 
-        if (cursorMode === 'remote') {
-          sendInput({ type: 'mousemove', x: touchStartPos.x, y: touchStartPos.y });
+        hasTouchMoved = false;
+        isLongPressed = false;
+        clearTimeout(longPressTimer);
+
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+
+          touchStartPos = { clientX: touch.clientX, clientY: touch.clientY, x: coords.x, y: coords.y };
+          lastTouchClient = { x: touch.clientX, y: touch.clientY };
+          touchStartTime = Date.now();
+
+          // Check for Scroll Mode toggle
+          if (mobileTouchMode === 'scroll') {
+            lastScrollClient = { x: touch.clientX, y: touch.clientY };
+            return;
+          }
+
+          // Check for Double-Tap & Hold Drag (drag windows / select text)
+          if (Date.now() - lastTapTime < 320) {
+            isDoubleTapDrag = true;
+            sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
+            sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: 0 });
+            if (navigator.vibrate) navigator.vibrate(20);
+            return;
+          }
+
+          // Move remote cursor to touch location in direct touch mode
+          if (coords.inside && mobileTouchMode === 'direct') {
+            sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
+          }
+
+          // Setup Long-Press Timer for Right Click (450ms)
+          longPressTimer = setTimeout(() => {
+            if (!hasTouchMoved && !isDoubleTapDrag && e.touches.length === 1) {
+              isLongPressed = true;
+              if (navigator.vibrate) navigator.vibrate([35, 30, 35]);
+              spawnTouchRipple(touch.clientX, touch.clientY, true);
+              const targetCoords = (mobileTouchMode === 'trackpad') ? trackpadCursorPos : coords;
+              sendInput({ type: 'mousedown', x: targetCoords.x, y: targetCoords.y, button: 2 });
+              setTimeout(() => {
+                sendInput({ type: 'mouseup', x: targetCoords.x, y: targetCoords.y, button: 2 });
+              }, 40);
+            }
+          }, 450);
+
+        } else if (e.touches.length === 2) {
+          // Two fingers: Start smooth two-finger scrolling
+          isTwoFingerScroll = true;
+          isDoubleTapDrag = false;
+          clearTimeout(longPressTimer);
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          lastScrollClient = { x: midX, y: midY };
+          touchStartTime = Date.now();
         }
       }, { passive: false, signal });
 
@@ -1846,26 +2076,134 @@
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
-        isDragging = true;
-        const touch = e.touches[0];
-        const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
-        sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
+
+        // 1. Two-Finger Smooth Scrolling
+        if (isTwoFingerScroll && e.touches.length >= 2) {
+          const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          const deltaX = (lastScrollClient.x - midX);
+          const deltaY = (lastScrollClient.y - midY);
+          lastScrollClient = { x: midX, y: midY };
+
+          if (Math.hypot(midX - touchStartPos.clientX, midY - touchStartPos.clientY) > 8) {
+            hasTouchMoved = true;
+          }
+
+          const coords = getNormalizedVideoCoordinates(midX, midY, video);
+          // Scale delta for natural, smooth scroll velocity
+          sendInput({
+            type: 'scroll',
+            deltaX: deltaX * 6,
+            deltaY: deltaY * 6,
+            x: coords.x,
+            y: coords.y
+          });
+          return;
+        }
+
+        // 2. One-Finger Actions
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const distMoved = Math.hypot(touch.clientX - touchStartPos.clientX, touch.clientY - touchStartPos.clientY);
+          if (distMoved > 8) {
+            hasTouchMoved = true;
+            clearTimeout(longPressTimer);
+          }
+
+          // A) Single-finger Scroll Mode
+          if (mobileTouchMode === 'scroll') {
+            const deltaX = (lastScrollClient.x - touch.clientX);
+            const deltaY = (lastScrollClient.y - touch.clientY);
+            lastScrollClient = { x: touch.clientX, y: touch.clientY };
+            const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+            sendInput({
+              type: 'scroll',
+              deltaX: deltaX * 6,
+              deltaY: deltaY * 6,
+              x: coords.x,
+              y: coords.y
+            });
+            return;
+          }
+
+          // B) Trackpad Gliding Mode
+          if (mobileTouchMode === 'trackpad') {
+            const dx = (touch.clientX - lastTouchClient.x) / (window.innerWidth || 1) * 1.6;
+            const dy = (touch.clientY - lastTouchClient.y) / (window.innerHeight || 1) * 1.6;
+            lastTouchClient = { x: touch.clientX, y: touch.clientY };
+
+            trackpadCursorPos.x = Math.max(0, Math.min(1, trackpadCursorPos.x + dx));
+            trackpadCursorPos.y = Math.max(0, Math.min(1, trackpadCursorPos.y + dy));
+
+            sendInput({ type: 'mousemove', x: trackpadCursorPos.x, y: trackpadCursorPos.y });
+            return;
+          }
+
+          // C) Direct Touch Dragging or Mouse Move
+          const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+          if (coords.inside) {
+            sendInput({ type: 'mousemove', x: coords.x, y: coords.y });
+          }
+        }
       }, 16), { passive: false, signal });
 
       video.addEventListener('touchend', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
         if (cursorMode !== 'remote') return;
         e.preventDefault();
-        
-        const touchDuration = Date.now() - touchStartTime;
-        if (!isDragging && touchDuration < 300) {
-          const button = (touchCount > 1) ? 2 : 0;
-          sendInput({ type: 'mousedown', x: touchStartPos.x, y: touchStartPos.y, button });
-          setTimeout(() => {
-            sendInput({ type: 'mouseup', x: touchStartPos.x, y: touchStartPos.y, button });
-          }, 50);
+
+        clearTimeout(longPressTimer);
+
+        // Handle Two-Finger Tap (Right Click)
+        if (isTwoFingerScroll) {
+          const duration = Date.now() - touchStartTime;
+          if (!hasTouchMoved && duration < 280) {
+            const coords = getNormalizedVideoCoordinates(lastScrollClient.x, lastScrollClient.y, video);
+            spawnTouchRipple(lastScrollClient.x, lastScrollClient.y, true);
+            if (navigator.vibrate) navigator.vibrate(30);
+            sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: 2 });
+            setTimeout(() => sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: 2 }), 40);
+          }
+          if (e.touches.length === 0) {
+            isTwoFingerScroll = false;
+          }
+          return;
         }
-        touchCount = e.touches.length;
+
+        // Handle Double-Tap Drag Release
+        if (isDoubleTapDrag) {
+          isDoubleTapDrag = false;
+          const touch = e.changedTouches[0];
+          const coords = getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+          sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: 0 });
+          lastTapTime = 0;
+          return;
+        }
+
+        // If long press triggered right click, do nothing on release
+        if (isLongPressed) {
+          isLongPressed = false;
+          return;
+        }
+
+        // Single Tap -> Left Click
+        const touchDuration = Date.now() - touchStartTime;
+        if (!hasTouchMoved && touchDuration < 280 && mobileTouchMode !== 'scroll') {
+          const touch = e.changedTouches[0];
+          spawnTouchRipple(touch.clientX, touch.clientY, false);
+
+          const targetCoords = (mobileTouchMode === 'trackpad') 
+            ? trackpadCursorPos 
+            : getNormalizedVideoCoordinates(touch.clientX, touch.clientY, video);
+
+          sendInput({ type: 'mousemove', x: targetCoords.x, y: targetCoords.y });
+          sendInput({ type: 'mousedown', x: targetCoords.x, y: targetCoords.y, button: 0 });
+          setTimeout(() => {
+            sendInput({ type: 'mouseup', x: targetCoords.x, y: targetCoords.y, button: 0 });
+          }, 40);
+
+          lastTapTime = Date.now();
+        }
       }, { signal });
 
 
@@ -2110,15 +2448,80 @@
       console.log(`[Web] Sent command: ${command}`);
     }
 
+    // ─── Mobile Control Helpers ─────────────────────────────────
+    let mobileTouchMode = 'direct';
+    let trackpadCursorPos = { x: 0.5, y: 0.5 };
+    let mobileModifiers = { ctrl: false, alt: false, meta: false, shift: false };
+
+    function setMobileTouchMode(mode) {
+      mobileTouchMode = mode;
+      document.querySelectorAll('.m-dock-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('btnTouchMode' + mode.charAt(0).toUpperCase() + mode.slice(1));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const modeNames = { direct: 'Direct Touch', trackpad: 'Trackpad Mode', scroll: 'Scroll Wheel Mode' };
+      showClipboardToast(`Mode: ${modeNames[mode] || mode}`);
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    function toggleSpecialKeysRow() {
+      const row = document.getElementById('mobileSpecialKeys');
+      if (row) {
+        row.style.display = (row.style.display === 'none' || !row.style.display) ? 'flex' : 'none';
+      }
+    }
+
+    function toggleMobileDock() {
+      const dock = document.getElementById('mobileControlDock');
+      if (dock) {
+        dock.style.display = (dock.style.display === 'none') ? 'flex' : 'none';
+      }
+    }
+
+    function sendClick(button = 0) {
+      const pos = (mobileTouchMode === 'trackpad') ? trackpadCursorPos : { x: 0.5, y: 0.5 };
+      sendInput({ type: 'mousedown', x: pos.x, y: pos.y, button });
+      setTimeout(() => sendInput({ type: 'mouseup', x: pos.x, y: pos.y, button }), 40);
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+
+    function toggleModifier(mod) {
+      mobileModifiers[mod] = !mobileModifiers[mod];
+      const btn = document.getElementById('btnModifier' + mod.charAt(0).toUpperCase() + mod.slice(1));
+      if (btn) {
+        btn.classList.toggle('latch', mobileModifiers[mod]);
+      }
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function sendSpecialKey(keyName, code = null) {
+      const payload = {
+        type: 'keydown',
+        key: keyName,
+        code: code || keyName,
+        ctrlKey: mobileModifiers.ctrl,
+        altKey: mobileModifiers.alt,
+        metaKey: mobileModifiers.meta,
+        shiftKey: mobileModifiers.shift
+      };
+      sendInput(payload);
+      setTimeout(() => {
+        sendInput({ type: 'keyup', key: keyName, code: code || keyName });
+        // Reset non-locked modifiers after key press
+        if (mobileModifiers.shift) toggleModifier('shift');
+      }, 50);
+
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
     function toggleVirtualKeyboard() {
       const virtualInput = document.getElementById('virtualKeyboardInput');
-      const btn = document.getElementById('btnVirtualKeyboard');
+      if (!virtualInput) return;
       if (document.activeElement === virtualInput) {
         virtualInput.blur();
-        btn.style.background = 'rgba(255,255,255,0.1)';
       } else {
         virtualInput.focus();
-        btn.style.background = 'rgba(255,255,255,0.2)';
+        virtualInput.click();
       }
     }
 
