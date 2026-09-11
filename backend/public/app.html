@@ -1018,7 +1018,22 @@
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun.cloudflare.com:3478' },
-      { urls: 'stun:global.stun.twilio.com:3478' }
+      { urls: 'stun:global.stun.twilio.com:3478' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ];
 
     const BROWSER_DEVICE_ID = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1537,18 +1552,45 @@
 
       peerConnection.ontrack = (event) => {
         console.log('[Web] Track received:', event.track.kind);
-        if (remoteStream) {
+        
+        // Bind media stream
+        if (event.streams && event.streams[0]) {
+          if (remoteVideo.srcObject !== event.streams[0]) {
+            remoteVideo.srcObject = event.streams[0];
+          }
+        } else if (remoteStream) {
           remoteStream.addTrack(event.track);
+          if (remoteVideo.srcObject !== remoteStream) {
+            remoteVideo.srcObject = remoteStream;
+          }
         }
 
         document.getElementById('viewerConnectingText').textContent = 'Stream connected, rendering...';
         
-        // Mute screen and camera to satisfy browser autoplay policy
+        // Ensure inline autoplay for all mobile and desktop browsers
+        remoteVideo.playsInline = true;
+        remoteVideo.autoplay = true;
         remoteVideo.muted = (currentFeature === 'screen' || currentFeature === 'camera');
-        remoteVideo.play().catch(e => {
-          console.error('[Web] Play failed:', e);
-          document.getElementById('playOverlay').style.display = 'flex';
-        });
+        
+        const playPromise = remoteVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            const overlay = document.getElementById('playOverlay');
+            if (overlay) overlay.style.display = 'none';
+          }).catch(e => {
+            if (e.name === 'AbortError') {
+              // Benign: A second track or new load request interrupted previous play()
+              console.warn('[Web] Play interrupted (benign):', e.message);
+              return;
+            }
+            console.error('[Web] Play failed:', e);
+            if (e.name === 'NotAllowedError') {
+              // Autoplay blocked by browser policy until user gesture
+              const overlay = document.getElementById('playOverlay');
+              if (overlay) overlay.style.display = 'flex';
+            }
+          });
+        }
 
         document.getElementById('viewerConnecting').classList.add('hidden');
         updateDimensionBadge();
@@ -2346,10 +2388,6 @@
     });
 
     window.addEventListener('pagehide', () => {
-      notifyHostDisconnect();
-    });
-
-    window.addEventListener('unload', () => {
       notifyHostDisconnect();
     });
 

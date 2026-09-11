@@ -16,6 +16,7 @@ app.use((req, res, next) => {
 });
 
 // Serve the web client
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Production page routes
