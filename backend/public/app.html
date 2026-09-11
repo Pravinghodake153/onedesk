@@ -2100,22 +2100,20 @@
       document.getElementById('viewerStats').classList.toggle('visible', showingStats);
     }
 
-    // ─── Clipboard (browser → host) ─────────────────────────────
-    // Poll browser clipboard and send changes
+    // ─── Clipboard Sync (browser → host) ─────────────────────────
+    // Event-driven clipboard sync on user paste (eliminates continuous permission violation polling)
     let lastClipboard = '';
-    setInterval(async () => {
+    window.addEventListener('paste', (e) => {
       if (!clipboardChannel || clipboardChannel.readyState !== 'open') return;
       try {
-        const text = await navigator.clipboard.readText();
+        const text = e.clipboardData ? e.clipboardData.getData('text') : '';
         if (text && text !== lastClipboard) {
           lastClipboard = text;
           clipboardChannel.send(JSON.stringify({ type: 'text', data: text, timestamp: Date.now() }));
           showClipboardToast('Clipboard sent to host');
         }
-      } catch (e) {
-        // Clipboard API requires user gesture / permission
-      }
-    }, 1000);
+      } catch (err) {}
+    });
 
     function showClipboardToast(text) {
       const toast = document.getElementById('clipboardToast');

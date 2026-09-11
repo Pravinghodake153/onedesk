@@ -9,6 +9,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.text({ type: ['text/*', 'application/json'] }));
 
+// Allow camera, microphone, display-capture, clipboard, autoplay
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=*, microphone=*, display-capture=*, clipboard-read=*, clipboard-write=*, autoplay=*, fullscreen=*');
+  next();
+});
+
 // Serve the web client
 app.use(express.static(path.join(__dirname, 'public')));
 
