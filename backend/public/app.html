@@ -803,51 +803,9 @@
       transition: opacity 0.3s ease;
     }
 
-    /* Fullscreen edge-reveal exit bar */
+    /* Clean Fullscreen - Zero dark bars or overlays on hover */
     .fullscreen-exit-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 48px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-    }
-    #viewerPage.clean-fullscreen .fullscreen-exit-bar {
-      display: flex;
-    }
-    #viewerPage:not(.clean-fullscreen) .fullscreen-exit-bar {
-      display: none;
-    }
-    .fullscreen-exit-bar.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .fullscreen-exit-bar .exit-btn {
-      padding: 6px 16px;
-      background: rgba(255, 69, 58, 0.2);
-      border: 1px solid rgba(255, 69, 58, 0.4);
-      color: #ff453a;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .fullscreen-exit-bar .exit-btn:hover {
-      background: rgba(255, 69, 58, 0.4);
-    }
-    .fullscreen-exit-bar .mode-label {
-      font-size: 12px;
-      color: rgba(255,255,255,0.6);
-      font-weight: 500;
+      display: none !important;
     }
 
     /* ─── Footer ─────────────────────────────────────────────────── */
@@ -1127,6 +1085,9 @@
         <button class="m-dock-btn" onclick="sendClick(2)" title="Right Click">
           <span>R-Click</span>
         </button>
+        <button class="m-dock-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">
+          <span>⛶ Full</span>
+        </button>
         <button class="m-dock-btn" onclick="toggleVirtualKeyboard()" title="Show/Hide Soft Keyboard">
           <span>⌨️ Keys</span>
         </button>
@@ -1134,12 +1095,6 @@
           <span>⚙️ Extra</span>
         </button>
       </div>
-    </div>
-
-    <!-- Fullscreen edge-reveal exit bar -->
-    <div class="fullscreen-exit-bar" id="fullscreenExitBar">
-      <span class="mode-label" id="fsModeLabelText">Live Stream · Fullscreen</span>
-      <button class="exit-btn" onclick="toggleFullscreen()">Exit Fullscreen</button>
     </div>
 
     <!-- Hidden input to summon mobile keyboard -->
@@ -2616,12 +2571,14 @@
       if (!document.fullscreenElement) {
         viewer.requestFullscreen().then(() => {
           viewer.classList.add('clean-fullscreen');
-          updateFsModeLabelText();
+          showClipboardToast('Fullscreen active · Press ESC to exit');
         }).catch(err => {
           console.warn('[Fullscreen] Failed:', err);
         });
       } else {
-        document.exitFullscreen();
+        document.exitFullscreen().then(() => {
+          viewer.classList.remove('clean-fullscreen');
+        }).catch(() => {});
       }
     }
 
@@ -2630,36 +2587,8 @@
       const viewer = document.getElementById('viewerPage');
       if (!document.fullscreenElement) {
         viewer.classList.remove('clean-fullscreen');
-        const exitBar = document.getElementById('fullscreenExitBar');
-        if (exitBar) exitBar.classList.remove('visible');
       }
     });
-
-    // Edge-reveal: show exit bar when mouse is near top of screen in fullscreen
-    document.addEventListener('mousemove', (e) => {
-      if (!document.fullscreenElement) return;
-      const exitBar = document.getElementById('fullscreenExitBar');
-      if (!exitBar) return;
-
-      if (e.clientY <= 6) {
-        exitBar.classList.add('visible');
-        clearTimeout(fullscreenEdgeTimer);
-        fullscreenEdgeTimer = setTimeout(() => {
-          exitBar.classList.remove('visible');
-        }, 3000);
-      } else if (e.clientY > 60) {
-        exitBar.classList.remove('visible');
-        clearTimeout(fullscreenEdgeTimer);
-      }
-    });
-
-    function updateFsModeLabelText() {
-      const label = document.getElementById('fsModeLabelText');
-      if (label) {
-        const modeName = streamMode === 'clear' ? 'Clear Vision' : 'Live Stream';
-        label.textContent = `${modeName} · Fullscreen`;
-      }
-    }
 
     // ─── Streaming Mode Toggle ─────────────────────────────────────
     function toggleStreamMode() {
