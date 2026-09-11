@@ -517,6 +517,9 @@
       // If no active connections remain, stop all media streams immediately
       if (peers.size === 0) {
         cleanupAllStreams();
+        if (window.onedesk && window.onedesk.setBlankScreen) {
+          window.onedesk.setBlankScreen(false);
+        }
         console.log('[Host] No active connections — all streams stopped and hardware released');
       }
     }

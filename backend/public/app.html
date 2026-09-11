@@ -1125,6 +1125,9 @@
       <button class="tb-btn mobile-only" id="btnMobileControlsToggle" title="Mobile Controls & Function Keys" onclick="toggleMobileDock()" style="background: rgba(10,132,255,0.3); color: #0A84FF; backdrop-filter: blur(10px);">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
       </button>
+      <button class="tb-btn" id="btnBlankScreen" title="Turn Remote Screen Off (Energy Saver & Privacy) / Turn On" onclick="toggleRemoteScreenBlank()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
       <button class="tb-btn" title="Toggle Stats" onclick="toggleStats()" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
       </button>
@@ -1156,6 +1159,7 @@
         <button class="m-key" onclick="sendDesktopNav('prev-space')" title="Switch to Left Desktop Space (Ctrl+Left)">⇦ Space</button>
         <button class="m-key" onclick="sendDesktopNav('next-space')" title="Switch to Right Desktop Space (Ctrl+Right)">Space ⇨</button>
         <button class="m-key" onclick="sendDesktopNav('mission-control')" title="Mission Control / All Windows (Ctrl+Up)">⛶ All Win</button>
+        <button class="m-key" id="btnMobileBlankScreen" onclick="toggleRemoteScreenBlank()" title="Toggle Remote Screen Energy Saver (Physical Screen Off / On)">🌙 Screen Off</button>
       </div>
 
       <!-- Main Action Bar -->
@@ -2662,6 +2666,49 @@
       if (navigator.vibrate) navigator.vibrate(20);
     }
 
+    // ─── Remote Screen Blanking / Energy Saver (Curtain Mode) ───
+    let isRemoteScreenBlanked = false;
+
+    function toggleRemoteScreenBlank() {
+      isRemoteScreenBlanked = !isRemoteScreenBlanked;
+
+      // 1. Send via DataChannel if open (instant, low latency)
+      sendInput({ type: 'toggle-blank-screen', blank: isRemoteScreenBlanked });
+
+      // 2. Also send via signaling device-command (for fallback)
+      sendCommand('toggle-blank-screen', { blank: isRemoteScreenBlanked });
+
+      // Update UI button appearance
+      const btn = document.getElementById('btnBlankScreen');
+      const mBtn = document.getElementById('btnMobileBlankScreen');
+
+      if (isRemoteScreenBlanked) {
+        if (btn) {
+          btn.style.background = 'rgba(48, 209, 88, 0.35)';
+          btn.style.color = '#30d158';
+          btn.title = 'Remote Screen is OFF (Energy Saver Active) — Click to Turn On';
+        }
+        if (mBtn) {
+          mBtn.classList.add('latch');
+          mBtn.textContent = '☀️ Screen On';
+        }
+        showClipboardToast('Remote Screen is OFF — Energy Saver & Privacy active (Physical monitor dark)');
+      } else {
+        if (btn) {
+          btn.style.background = 'rgba(0, 0, 0, 0.5)';
+          btn.style.color = '';
+          btn.title = 'Turn Remote Screen Off (Privacy & Energy Saver) / Turn On';
+        }
+        if (mBtn) {
+          mBtn.classList.remove('latch');
+          mBtn.textContent = '🌙 Screen Off';
+        }
+        showClipboardToast('Remote Screen is ON — Normal physical display restored');
+      }
+
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+
     function toggleVirtualKeyboard() {
       const virtualInput = document.getElementById('virtualKeyboardInput');
       if (!virtualInput) return;
@@ -2952,6 +2999,13 @@
       currentFeature = null;
       showingStats = false;
       streamMode = 'live';
+
+      // Reset remote screen blank state
+      isRemoteScreenBlanked = false;
+      const btnBlank = document.getElementById('btnBlankScreen');
+      if (btnBlank) { btnBlank.style.background = 'rgba(0, 0, 0, 0.5)'; btnBlank.style.color = ''; }
+      const mBtnBlank = document.getElementById('btnMobileBlankScreen');
+      if (mBtnBlank) { mBtnBlank.classList.remove('latch'); mBtnBlank.textContent = '🌙 Screen Off'; }
 
       // Reset stream mode UI
       const smPill = document.getElementById('streamModePill');

@@ -8,6 +8,7 @@ const { InputSimulator } = require('./src/input-simulator');
 const { ClipboardSync } = require('./src/clipboard-sync');
 const { FileTransfer } = require('./src/file-transfer');
 const { QualityController } = require('./src/quality-controller');
+const { displayPowerManager } = require('./src/display-power');
 const extensionServer = require('./src/extensionServer');
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -120,6 +121,17 @@ function setupIPC() {
     if (inputSimulator) {
       inputSimulator.handleEvent(inputEvent);
     }
+  });
+
+  // Screen Blanking / Energy Saver (Curtain Mode)
+  ipcMain.handle('toggle-blank-screen', async () => {
+    return await displayPowerManager.toggleBlankScreen();
+  });
+  ipcMain.handle('set-blank-screen', async (_, blank) => {
+    return await displayPowerManager.setBlankScreen(blank);
+  });
+  ipcMain.handle('get-blank-screen-status', () => {
+    return displayPowerManager.getStatus();
   });
 
   // Clipboard
@@ -266,6 +278,7 @@ app.whenReady().then(() => {
 
   signaling.on('webrtc-disconnect', (data) => {
     console.log(`[Main] Disconnect request from ${data.senderSocketId}`);
+    displayPowerManager.setBlankScreen(false); // Restore screen when client disconnects
     if (hostWindow && !hostWindow.isDestroyed()) {
       hostWindow.webContents.send('webrtc-disconnect', data);
     }
@@ -279,7 +292,12 @@ app.whenReady().then(() => {
 
   // Handle remote commands from Web App
   signaling.on('device-command', (data) => {
-    if (data.command === 'toggle_autostart') {
+    if (data.command === 'toggle-blank-screen') {
+      displayPowerManager.toggleBlankScreen();
+    } else if (data.command === 'set-blank-screen') {
+      const blank = data.payload ? data.payload.blank : true;
+      displayPowerManager.setBlankScreen(blank);
+    } else if (data.command === 'toggle_autostart') {
       const currentSettings = app.getLoginItemSettings();
       const newSetting = !currentSettings.openAtLogin;
       

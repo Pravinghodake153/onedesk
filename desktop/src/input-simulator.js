@@ -1,4 +1,5 @@
 const { screen } = require('electron');
+const { displayPowerManager } = require('./display-power');
 
 /**
  * InputSimulator — translates normalized input events from the remote
@@ -85,6 +86,14 @@ class InputSimulator {
           break;
         case 'typeText':
           await this._handleTypeText(event);
+          break;
+        case 'toggle-blank-screen':
+        case 'blank-screen':
+          if (typeof event.blank === 'boolean') {
+            await displayPowerManager.setBlankScreen(event.blank);
+          } else {
+            await displayPowerManager.toggleBlankScreen();
+          }
           break;
         default:
           console.warn(`[Input] Unknown event type: ${event.type}`);

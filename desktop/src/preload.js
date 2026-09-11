@@ -86,6 +86,13 @@ contextBridge.exposeInMainWorld('onedesk', {
   },
 
   // ──────────────────────────────────────────────────────────────────
+  // Screen Blanking / Energy Saver (Curtain Mode)
+  // ──────────────────────────────────────────────────────────────────
+  toggleBlankScreen: () => ipcRenderer.invoke('toggle-blank-screen'),
+  setBlankScreen: (blank) => ipcRenderer.invoke('set-blank-screen', blank),
+  getBlankScreenStatus: () => ipcRenderer.invoke('get-blank-screen-status'),
+
+  // ──────────────────────────────────────────────────────────────────
   // Clipboard Sync
   // ──────────────────────────────────────────────────────────────────
   onClipboardChanged: (callback) => {
