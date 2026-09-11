@@ -2188,7 +2188,8 @@
         sendInput({
           type: 'keydown', key: e.key, code: e.code,
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey,
-          altKey: e.altKey, metaKey: e.metaKey
+          altKey: e.altKey, metaKey: e.metaKey,
+          capsLock: (typeof e.getModifierState === 'function') ? e.getModifierState('CapsLock') : false
         });
       }, { signal });
 
@@ -2211,7 +2212,8 @@
             altKey: false,
             shiftKey: e.shiftKey,
             metaKey: e.metaKey,
-            isDesktopNav: true
+            isDesktopNav: true,
+            capsLock: (typeof e.getModifierState === 'function') ? e.getModifierState('CapsLock') : false
           });
           return;
         }
@@ -2224,7 +2226,8 @@
           shiftKey: e.shiftKey,
           ctrlKey: e.ctrlKey,
           altKey: e.altKey,
-          metaKey: e.metaKey
+          metaKey: e.metaKey,
+          capsLock: (typeof e.getModifierState === 'function') ? e.getModifierState('CapsLock') : false
         });
       }, { signal });
 

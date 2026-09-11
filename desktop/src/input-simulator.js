@@ -215,12 +215,14 @@ class InputSimulator {
       return;
     }
 
+    // Synchronize modifiers and CapsLock before simulating key to prevent stuck Shift/CapsLock
+    await this._syncModifiers(event);
+
     const key = this._mapKey(event.code, event.key);
     if (key !== null) {
       // Handle modifier combos (e.g., Ctrl+C)
       const modifiers = this._getModifiers(event);
       if (modifiers.length > 0) {
-        // Press modifiers first, then the key
         for (const mod of modifiers) {
           await this.keyboard.pressKey(mod);
         }
@@ -250,12 +252,60 @@ class InputSimulator {
     const key = this._mapKey(event.code, event.key);
     if (key !== null) {
       await this.keyboard.releaseKey(key);
-      // Release modifiers too
-      const modifiers = this._getModifiers(event);
-      for (const mod of modifiers) {
-        await this.keyboard.releaseKey(mod);
-      }
     }
+
+    // Ensure all unpressed modifiers are cleanly released on host OS
+    await this._syncModifiers(event);
+  }
+
+  async _syncModifiers(event) {
+    if (!this.ready || !this.keyboard || !this.Key) return;
+
+    // Release Shift if user is not holding Shift (prevents stuck uppercase)
+    if (!event.shiftKey) {
+      try { await this.keyboard.releaseKey(this.Key.LeftShift); } catch (e) {}
+      try { await this.keyboard.releaseKey(this.Key.RightShift); } catch (e) {}
+    }
+    // Release Ctrl if not holding Ctrl
+    if (!event.ctrlKey && !event.isDesktopNav) {
+      try { await this.keyboard.releaseKey(this.Key.LeftControl); } catch (e) {}
+      try { await this.keyboard.releaseKey(this.Key.RightControl); } catch (e) {}
+    }
+    // Release Alt if not holding Alt
+    if (!event.altKey) {
+      try { await this.keyboard.releaseKey(this.Key.LeftAlt); } catch (e) {}
+      try { await this.keyboard.releaseKey(this.Key.RightAlt); } catch (e) {}
+    }
+    // Release Meta/Command if not holding Meta
+    if (!event.metaKey) {
+      try { await this.keyboard.releaseKey(this.Key.LeftSuper); } catch (e) {}
+      try { await this.keyboard.releaseKey(this.Key.RightSuper); } catch (e) {}
+    }
+
+    // Align Caps Lock state between client and host on macOS
+    if (typeof event.capsLock === 'boolean' && process.platform === 'darwin') {
+      this._syncCapsLockState(event.capsLock);
+    }
+  }
+
+  _syncCapsLockState(clientCapsLock) {
+    const now = Date.now();
+    if (this._lastCapsLockCheck && (now - this._lastCapsLockCheck < 400)) return;
+    this._lastCapsLockCheck = now;
+
+    const { exec } = require('child_process');
+    exec(`python3 -c "import ctypes; cg = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics'); print(1 if (cg.CGEventSourceFlagsState(1) & 0x10000) else 0)"`, async (err, stdout) => {
+      if (!err && stdout) {
+        const hostCapsLock = stdout.trim() === '1';
+        if (hostCapsLock !== clientCapsLock) {
+          console.log(`[Input] Aligning host CapsLock (${hostCapsLock}) with client (${clientCapsLock})`);
+          try {
+            await this.keyboard.pressKey(this.Key.CapsLock);
+            await this.keyboard.releaseKey(this.Key.CapsLock);
+          } catch (e) {}
+        }
+      }
+    });
   }
 
   async _handleDesktopNavigation(event) {
@@ -310,10 +360,18 @@ class InputSimulator {
 
   _getModifiers(event) {
     const mods = [];
-    if (event.ctrlKey) mods.push(this.Key.LeftControl);
-    if (event.shiftKey) mods.push(this.Key.LeftShift);
-    if (event.altKey) mods.push(this.Key.LeftAlt);
-    if (event.metaKey) mods.push(this.Key.LeftSuper);
+    if (event.ctrlKey && event.code !== 'ControlLeft' && event.code !== 'ControlRight') {
+      mods.push(this.Key.LeftControl);
+    }
+    if (event.shiftKey && event.code !== 'ShiftLeft' && event.code !== 'ShiftRight') {
+      mods.push(this.Key.LeftShift);
+    }
+    if (event.altKey && event.code !== 'AltLeft' && event.code !== 'AltRight') {
+      mods.push(this.Key.LeftAlt);
+    }
+    if (event.metaKey && event.code !== 'MetaLeft' && event.code !== 'MetaRight') {
+      mods.push(this.Key.LeftSuper);
+    }
     return mods;
   }
 
