@@ -58,6 +58,10 @@ contextBridge.exposeInMainWorld('onedesk', {
   // ──────────────────────────────────────────────────────────────────
   // Host-specific channels
   // ──────────────────────────────────────────────────────────────────
+  onHostIceServersConfig: (callback) => {
+    ipcRenderer.on('host-ice-servers-config', (_, data) => callback(data));
+  },
+
   onHostIncomingOffer: (callback) => {
     ipcRenderer.on('host-incoming-offer', (_, data) => callback(data));
   },

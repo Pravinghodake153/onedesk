@@ -6,28 +6,38 @@
        input forwarding to native simulator, clipboard sync,
        and file transfer DataChannels. Never shown to user. -->
   <script>
-    const ICE_SERVERS = [
+    let ICE_SERVERS = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun.cloudflare.com:3478' },
       { urls: 'stun:global.stun.twilio.com:3478' },
       {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        urls: [
+          'turn:staticauth.openrelay.metered.ca:80',
+          'turn:staticauth.openrelay.metered.ca:443',
+          'turns:staticauth.openrelay.metered.ca:443?transport=tcp'
+        ],
         username: 'openrelayproject',
         credential: 'openrelayproject'
       }
     ];
+
+    if (window.onedesk && window.onedesk.onHostIceServersConfig) {
+      window.onedesk.onHostIceServersConfig((servers) => {
+        if (Array.isArray(servers) && servers.length > 0) {
+          ICE_SERVERS = servers;
+          console.log('[Host] Updated ICE servers from signaling:', servers.length);
+        }
+      });
+    }
+
+    fetch('https://onedesk-upet.onrender.com/api/ice-servers').then(r => r.json()).then(servers => {
+      if (Array.isArray(servers) && servers.length > 0) {
+        ICE_SERVERS = servers;
+        console.log('[Host] Loaded live ICE servers from backend:', servers.length);
+      }
+    }).catch(() => {});
 
     const peers = new Map();     // socketId -> { pc, inputChannel, clipboardChannel, fileChannel }
     let screenStream = null;

@@ -1013,28 +1013,30 @@
     let showHiddenFiles = false;
     let lastDirectoryItems = [];
 
-    const ICE_SERVERS = [
+    let ICE_SERVERS = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun.cloudflare.com:3478' },
       { urls: 'stun:global.stun.twilio.com:3478' },
       {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        urls: [
+          'turn:staticauth.openrelay.metered.ca:80',
+          'turn:staticauth.openrelay.metered.ca:443',
+          'turns:staticauth.openrelay.metered.ca:443?transport=tcp'
+        ],
         username: 'openrelayproject',
         credential: 'openrelayproject'
       }
     ];
+
+    // Fetch dynamic TURN credentials from server immediately
+    fetch('/api/ice-servers').then(r => r.json()).then(servers => {
+      if (Array.isArray(servers) && servers.length > 0) {
+        ICE_SERVERS = servers;
+        console.log('[Web] Loaded dynamic ICE servers from backend:', servers.length);
+      }
+    }).catch(() => {});
 
     const BROWSER_DEVICE_ID = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -1046,6 +1048,13 @@
         reconnectionDelay: 1000,
         reconnectionDelayMax: 10000,
         transports: ['websocket', 'polling']
+      });
+
+      socket.on('ice-servers-config', (servers) => {
+        if (Array.isArray(servers) && servers.length > 0) {
+          ICE_SERVERS = servers;
+          console.log('[Web] Received updated ICE servers from signaling:', servers.length);
+        }
       });
 
       socket.on('connect', () => {

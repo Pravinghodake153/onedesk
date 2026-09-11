@@ -32,6 +32,7 @@ if (process.platform === 'darwin') {
 
 // Disable WebRTC mDNS obfuscation to fix '.local' resolution errors on local networks
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+app.commandLine.appendSwitch('enable-webrtc-stun-origin');
 
 const gotSingleLock = app.requestSingleInstanceLock();
 if (!gotSingleLock) {
@@ -243,6 +244,13 @@ app.whenReady().then(() => {
   });
 
   // WebRTC signaling relay
+  signaling.on('ice-servers-config', (servers) => {
+    console.log(`[Main] Received updated ICE servers from signaling: ${servers?.length || 0} servers`);
+    if (hostWindow && !hostWindow.isDestroyed()) {
+      hostWindow.webContents.send('host-ice-servers-config', servers);
+    }
+  });
+
   signaling.on('webrtc-offer', (data) => {
     console.log(`[Main] Incoming offer from ${data.senderSocketId}`);
     if (hostWindow && !hostWindow.isDestroyed()) {

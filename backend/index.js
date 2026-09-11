@@ -52,7 +52,75 @@ const io = new Server(server, {
 const devices = new Map();      // socketId -> device info
 const connections = new Map();  // connectionId -> { host, client, startedAt }
 
+// ─── ICE / TURN Configuration ───────────────────────────────────────────────
+const crypto = require('crypto');
+let cachedIceServers = null;
+let lastIceFetch = 0;
+
+async function getIceServers() {
+  const apiKey = process.env.METERED_API_KEY;
+  const appName = process.env.METERED_APP_NAME;
+
+  // If user configured Metered.ca account, fetch dynamic low-latency TURN credentials
+  if (apiKey && appName) {
+    if (cachedIceServers && (Date.now() - lastIceFetch < 3600000)) {
+      return cachedIceServers;
+    }
+    try {
+      const resp = await fetch(`https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) {
+          cachedIceServers = data;
+          lastIceFetch = Date.now();
+          console.log('[TURN] Successfully fetched dynamic credentials from Metered.ca');
+          return cachedIceServers;
+        }
+      }
+    } catch (err) {
+      console.error('[TURN] Error fetching from Metered.ca API:', err.message);
+    }
+  }
+
+  // Standard RFC 5766 HMAC dynamic timestamp credentials + STUN
+  const expiry = Math.floor(Date.now() / 1000) + 86400;
+  const username = `${expiry}:onedesk`;
+  const secret = 'openrelayprojectsecret';
+  const hmac = crypto.createHmac('sha1', secret).update(username).digest('base64');
+
+  return [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: [
+        'turn:staticauth.openrelay.metered.ca:80',
+        'turn:staticauth.openrelay.metered.ca:443',
+        'turns:staticauth.openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: username,
+      credential: hmac
+    },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ];
+}
+
 // ─── REST Endpoints ─────────────────────────────────────────────────────────
+app.get('/api/ice-servers', async (req, res) => {
+  const servers = await getIceServers();
+  res.json(servers);
+});
+
 app.get('/api', (req, res) => {
   res.json({
     name: 'OneDesk Signaling Server',
@@ -114,6 +182,11 @@ app.post('/api/disconnect', (req, res) => {
 // ─── Socket.IO ──────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[+] ${socket.id}`);
+
+  // Send current ICE servers configuration
+  getIceServers().then(servers => {
+    socket.emit('ice-servers-config', servers);
+  }).catch(e => console.error('[ICE] Error sending ice-servers-config:', e.message));
 
   // ─── Device Registration ──────────────────────────────────────────
   socket.on('register-device', (data) => {

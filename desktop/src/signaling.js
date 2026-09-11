@@ -49,6 +49,11 @@ class SignalingClient extends EventEmitter {
       this.emit('devices-updated', devices);
     });
 
+    // Dynamic ICE / TURN server configuration
+    this.socket.on('ice-servers-config', (servers) => {
+      this.emit('ice-servers-config', servers);
+    });
+
     // WebRTC signaling events — relay to main process
     this.socket.on('webrtc-offer', (data) => {
       this.emit('webrtc-offer', data);
