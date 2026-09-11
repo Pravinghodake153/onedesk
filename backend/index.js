@@ -201,6 +201,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('stream-error', (data) => {
+    const { targetSocketId, feature, message } = data || {};
+    if (targetSocketId) {
+      console.warn(`[Stream Error] ${socket.id} → ${targetSocketId} (${feature}): ${message}`);
+      socket.to(targetSocketId).emit('stream-error', {
+        senderSocketId: socket.id,
+        feature,
+        message
+      });
+    }
+  });
+
   socket.on('device-command', (data) => {
     const { targetSocketId, command, payload } = data;
     socket.to(targetSocketId).emit('device-command', {

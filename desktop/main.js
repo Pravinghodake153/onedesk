@@ -164,6 +164,37 @@ app.whenReady().then(() => {
     callback(true);
   });
 
+  // Modern getDisplayMedia handler for Electron (Chromium 120+)
+  if (session.defaultSession.setDisplayMediaRequestHandler) {
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }).then((sources) => {
+        if (sources && sources.length > 0) {
+          console.log('[Main] Granted display media request with source:', sources[0].name);
+          callback({ video: sources[0] });
+        } else {
+          console.warn('[Main] No screen sources found for display media request');
+          callback({ video: null });
+        }
+      }).catch(err => {
+        console.error('[Main] setDisplayMediaRequestHandler error:', err);
+        callback({ video: null });
+      });
+    });
+  }
+
+  // Proactive macOS accessibility & screen access checks
+  if (process.platform === 'darwin') {
+    try {
+      const isTrusted = systemPreferences.isTrustedAccessibilityClient(true);
+      console.log(`[Main] Accessibility permission: ${isTrusted ? 'GRANTED' : 'PROMPTED/DENIED'}`);
+    } catch (e) {}
+
+    try {
+      const screenStatus = systemPreferences.getMediaAccessStatus ? systemPreferences.getMediaAccessStatus('screen') : 'unknown';
+      console.log(`[Main] Screen Recording permission: ${screenStatus}`);
+    } catch (e) {}
+  }
+
   // Setup IPC
   setupIPC();
 
@@ -270,8 +301,17 @@ app.whenReady().then(() => {
     
     try {
       let targetPath = requestedPath;
-      if (targetPath === '~') {
+      const lower = (requestedPath || '').toLowerCase().trim();
+      if (lower === '~' || lower === '' || lower === 'home' || lower === '~/') {
         targetPath = os.homedir();
+      } else if (lower === 'desktop' || lower === '~/desktop') {
+        targetPath = path.join(os.homedir(), 'Desktop');
+      } else if (lower === 'documents' || lower === '~/documents') {
+        targetPath = path.join(os.homedir(), 'Documents');
+      } else if (lower === 'downloads' || lower === '~/downloads') {
+        targetPath = path.join(os.homedir(), 'Downloads');
+      } else if (lower === 'pictures' || lower === '~/pictures') {
+        targetPath = path.join(os.homedir(), 'Pictures');
       }
 
       if (action === 'navigate_up') {
@@ -405,10 +445,14 @@ app.whenReady().then(() => {
 
     } catch (err) {
       console.error('[Main] File System Error:', err);
+      let friendlyMessage = err.message;
+      if (err.code === 'EPERM' || err.code === 'EACCES') {
+        friendlyMessage = `Permission denied by macOS for "${path.basename(requestedPath || 'folder')}". Enable Files & Folders access in System Settings > Privacy & Security > Files and Folders.`;
+      }
       if (action === 'download_file' || action === 'download_directory') {
-        signaling.sendFileDownloadChunk(senderSocketId, { status: 'error', message: err.message });
+        signaling.sendFileDownloadChunk(senderSocketId, { status: 'error', message: friendlyMessage });
       } else {
-        signaling.sendFileSystemResponse(senderSocketId, { type: 'error', message: err.message });
+        signaling.sendFileSystemResponse(senderSocketId, { type: 'error', message: friendlyMessage });
       }
     }
   });

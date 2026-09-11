@@ -9,7 +9,9 @@
     const ICE_SERVERS = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      { urls: 'stun:global.stun.twilio.com:3478' }
     ];
 
     const peers = new Map();     // socketId -> { pc, inputChannel, clipboardChannel, fileChannel }
@@ -34,32 +36,45 @@
         screenStream = null;
       }
 
+      // Method 1: Modern getDisplayMedia (Electron 28+ via setDisplayMediaRequestHandler)
       try {
-        const sources = await window.onedesk.getScreenSources();
-        if (sources.length === 0) {
-          console.error('[Host] No screen sources available');
-          return null;
-        }
-
-        const primarySource = sources[0];
-        
-        // Get quality constraints from main process
-        const screenInfo = await window.onedesk.getScreenInfo();
-
-        screenStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
+        console.log('[Host] Attempting screen capture via navigator.mediaDevices.getDisplayMedia...');
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: primarySource.id,
-              maxWidth: screenInfo.width || 1920,
-              maxHeight: screenInfo.height || 1080,
-              maxFrameRate: 30
-            }
-          }
+            cursor: 'always'
+          },
+          audio: false
         });
+        console.log('[Host] Screen capture via getDisplayMedia succeeded');
+      } catch (err1) {
+        console.warn('[Host] getDisplayMedia failed, attempting desktopCapturer getUserMedia fallback:', err1.message);
 
-        // Monitor stream health
+        // Method 2: Fallback to desktopCapturer getUserMedia
+        try {
+          const sources = await window.onedesk.getScreenSources();
+          if (sources && sources.length > 0) {
+            const primarySource = sources[0];
+            const screenInfo = await window.onedesk.getScreenInfo();
+            screenStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: primarySource.id,
+                  maxWidth: screenInfo.width || 1920,
+                  maxHeight: screenInfo.height || 1080,
+                  maxFrameRate: 30
+                }
+              }
+            });
+            console.log('[Host] Screen capture via desktopCapturer getUserMedia succeeded');
+          }
+        } catch (err2) {
+          console.error('[Host] All screen capture methods failed:', err2);
+        }
+      }
+
+      if (screenStream) {
         const tracks = screenStream.getVideoTracks();
         if (tracks.length > 0) {
           tracks[0].onended = () => {
@@ -67,13 +82,10 @@
             screenStream = null;
           };
         }
-
-        console.log(`[Host] Screen capture started: ${screenInfo.width}x${screenInfo.height}`);
         return screenStream;
-      } catch (err) {
-        console.error('[Host] Failed to capture screen:', err);
-        return null;
       }
+
+      return null;
     }
 
     // ─── Handle Incoming WebRTC Offer ───────────────────────────────
@@ -81,123 +93,136 @@
       const { senderSocketId, offer, feature = 'screen' } = data;
       console.log(`[Host] Processing offer from ${senderSocketId} (${feature})`);
 
-      // If this peer already had an active connection, clean it up first
-      if (peers.has(senderSocketId)) {
-        console.log(`[Host] Closing previous connection for ${senderSocketId} before switching to ${feature}`);
-        cleanupPeer(senderSocketId);
-      }
+      try {
+        // If this peer already had an active connection, clean it up first
+        if (peers.has(senderSocketId)) {
+          console.log(`[Host] Closing previous connection for ${senderSocketId} before switching to ${feature}`);
+          cleanupPeer(senderSocketId);
+        }
 
-      // Stop opposing streams to release hardware and prevent device conflict
-      if (feature === 'camera' || feature === 'av') {
-        if (screenStream) {
-          screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          screenStream = null;
-          console.log('[Host] Screen capture stopped for camera mode');
-        }
-      } else if (feature === 'screen') {
-        if (camStream) {
-          camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          camStream = null;
-          console.log('[Host] Camera capture stopped (hardware released) for screen mode');
-        }
-      } else if (feature === 'mic') {
-        if (screenStream) {
-          screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          screenStream = null;
-        }
-        if (camStream) {
-          camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          camStream = null;
-        }
-      }
-
-      // Capture requested streams
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-      let hasTracks = false;
-
-      // Screen Capture (ONLY for screen feature)
-      if (feature === 'screen') {
-        const stream = await getScreenStream();
-        if (stream) {
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
-          hasTracks = true;
-        } else {
-          console.error('[Host] Failed to attach screen stream');
-        }
-      }
-
-      // Camera Capture (for camera or av)
-      if (feature === 'camera' || feature === 'av') {
-        try {
-          const granted = await window.onedesk.requestMediaAccess('camera');
-          if (granted) {
-            let isLive = false;
-            if (camStream && camStream.active) {
-              const tracks = camStream.getVideoTracks();
-              if (tracks.length > 0 && tracks[0].readyState === 'live') {
-                isLive = true;
-              }
-            }
-            if (!isLive) {
-              if (camStream) {
-                camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-              }
-              camStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            }
-            camStream.getTracks().forEach(track => pc.addTrack(track, camStream));
-            hasTracks = true;
-            console.log('[Host] Camera capture attached');
-          } else {
-            console.error('[Host] Camera access denied by macOS');
+        // Stop opposing streams to release hardware and prevent device conflict
+        if (feature === 'camera' || feature === 'av') {
+          if (screenStream) {
+            screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            screenStream = null;
+            console.log('[Host] Screen capture stopped for camera mode');
           }
-        } catch (err) {
-          console.error('[Host] Failed to capture camera:', err);
-        }
-      }
-
-      // Microphone Capture (only for mic or av features)
-      if (feature === 'mic' || feature === 'av') {
-        try {
-          const granted = await window.onedesk.requestMediaAccess('microphone');
-          if (granted) {
-            let isLive = false;
-            if (micStream && micStream.active) {
-              const tracks = micStream.getAudioTracks();
-              if (tracks.length > 0 && tracks[0].readyState === 'live') {
-                isLive = true;
-              }
-            }
-            if (!isLive) {
-              if (micStream) {
-                micStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-              }
-              micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            }
-            micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
-            hasTracks = true;
-            console.log('[Host] Microphone capture attached');
-          } else {
-            console.error('[Host] Microphone access denied by macOS');
+        } else if (feature === 'screen') {
+          if (camStream) {
+            camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            camStream = null;
+            console.log('[Host] Camera capture stopped (hardware released) for screen mode');
           }
-        } catch (err) {
-          console.error('[Host] Failed to capture microphone:', err);
+        } else if (feature === 'mic') {
+          if (screenStream) {
+            screenStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            screenStream = null;
+          }
+          if (camStream) {
+            camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            camStream = null;
+          }
         }
-      }
 
-      if (!hasTracks) {
-        console.error('[Host] Cannot accept offer — no media streams captured');
-        return;
-      }
+        // Capture requested streams
+        const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+        let hasTracks = false;
 
-      // ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          window.onedesk.sendSignal('webrtc-ice-candidate', {
+        // Screen Capture (ONLY for screen feature)
+        if (feature === 'screen') {
+          const stream = await getScreenStream();
+          if (stream) {
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            hasTracks = true;
+          } else {
+            console.error('[Host] Failed to attach screen stream');
+          }
+        }
+
+        // Camera Capture (for camera or av)
+        if (feature === 'camera' || feature === 'av') {
+          try {
+            const granted = await window.onedesk.requestMediaAccess('camera');
+            if (granted) {
+              let isLive = false;
+              if (camStream && camStream.active) {
+                const tracks = camStream.getVideoTracks();
+                if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                  isLive = true;
+                }
+              }
+              if (!isLive) {
+                if (camStream) {
+                  camStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+                }
+                camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+              }
+              camStream.getTracks().forEach(track => pc.addTrack(track, camStream));
+              hasTracks = true;
+              console.log('[Host] Camera capture attached');
+            } else {
+              console.error('[Host] Camera access denied by macOS');
+            }
+          } catch (err) {
+            console.error('[Host] Failed to capture camera:', err);
+          }
+        }
+
+        // Microphone Capture (only for mic or av features)
+        if (feature === 'mic' || feature === 'av') {
+          try {
+            const granted = await window.onedesk.requestMediaAccess('microphone');
+            if (granted) {
+              let isLive = false;
+              if (micStream && micStream.active) {
+                const tracks = micStream.getAudioTracks();
+                if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                  isLive = true;
+                }
+              }
+              if (!isLive) {
+                if (micStream) {
+                  micStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+                }
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              }
+              micStream.getTracks().forEach(track => pc.addTrack(track, micStream));
+              hasTracks = true;
+              console.log('[Host] Microphone capture attached');
+            } else {
+              console.error('[Host] Microphone access denied by macOS');
+            }
+          } catch (err) {
+            console.error('[Host] Failed to capture microphone:', err);
+          }
+        }
+
+        if (!hasTracks) {
+          console.warn(`[Host] No media tracks available for ${feature}. Proceeding with connection for control & error reporting.`);
+          let reason = 'Media capture failed on host.';
+          if (feature === 'screen') {
+            reason = 'Screen Recording permission is required on the host Mac. Please enable Terminal / OneDesk in System Settings > Privacy & Security > Screen & System Audio Recording.';
+          } else if (feature === 'camera') {
+            reason = 'Camera permission denied on host Mac. Please enable Camera in System Settings > Privacy & Security > Camera.';
+          } else if (feature === 'mic') {
+            reason = 'Microphone permission denied on host Mac. Please enable Microphone in System Settings > Privacy & Security > Microphone.';
+          }
+          window.onedesk.sendSignal('stream-error', {
             targetSocketId: senderSocketId,
-            candidate: event.candidate.toJSON()
+            feature: feature,
+            message: reason
           });
         }
-      };
+
+        // ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            window.onedesk.sendSignal('webrtc-ice-candidate', {
+              targetSocketId: senderSocketId,
+              candidate: event.candidate.toJSON()
+            });
+          }
+        };
 
       // ─── Data Channels ──────────────────────────────────────────
       const peerData = {
@@ -332,7 +357,15 @@
 
       peers.set(senderSocketId, peerData);
       console.log(`[Host] Answer sent to ${senderSocketId} — streaming ${feature}`);
+    } catch (err) {
+      console.error('[Host] Fatal error in handleOffer:', err);
+      window.onedesk.sendSignal('stream-error', {
+        targetSocketId: senderSocketId,
+        feature: feature,
+        message: `Host connection failed: ${err.message}`
+      });
     }
+  }
 
     // ─── Handle ICE Candidate ───────────────────────────────────────
     async function handleIceCandidate(data) {
