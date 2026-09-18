@@ -2062,6 +2062,7 @@
 
       let lastMouseDownButton = -1;
       let lastMouseDownTime = 0;
+      let lastPrimaryClickTime = 0;
 
       video.addEventListener('mousedown', (e) => {
         if (!inputChannel || inputChannel.readyState !== 'open') return;
@@ -2070,16 +2071,23 @@
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
         if (!coords.inside) return;
 
-        let button = e.button;
-        // On macOS laptop trackpad, Control + Click is the native secondary (right) click setting
-        const isMac = (navigator.platform || '').toUpperCase().indexOf('MAC') >= 0 || (navigator.userAgent || '').toUpperCase().indexOf('MAC') >= 0;
-        if (isMac && e.ctrlKey && button === 0) {
-          button = 2;
+        const button = e.button;
+        if (button === 0) {
+          lastPrimaryClickTime = Date.now();
         }
 
         lastMouseDownButton = button;
         lastMouseDownTime = Date.now();
-        sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button });
+        sendInput({
+          type: 'mousedown',
+          x: coords.x,
+          y: coords.y,
+          button,
+          ctrlKey: !!e.ctrlKey,
+          shiftKey: !!e.shiftKey,
+          altKey: !!e.altKey,
+          metaKey: !!e.metaKey
+        });
       }, { signal });
 
       video.addEventListener('mouseup', (e) => {
@@ -2087,13 +2095,18 @@
         if (cursorMode !== 'remote') return;
 
         const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
-        let button = e.button;
-        const isMac = (navigator.platform || '').toUpperCase().indexOf('MAC') >= 0 || (navigator.userAgent || '').toUpperCase().indexOf('MAC') >= 0;
-        if (isMac && e.ctrlKey && button === 0) {
-          button = 2;
-        }
+        const button = e.button;
 
-        sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button });
+        sendInput({
+          type: 'mouseup',
+          x: coords.x,
+          y: coords.y,
+          button,
+          ctrlKey: !!e.ctrlKey,
+          shiftKey: !!e.shiftKey,
+          altKey: !!e.altKey,
+          metaKey: !!e.metaKey
+        });
       }, { signal });
 
       video.addEventListener('wheel', (e) => {
@@ -2114,18 +2127,9 @@
       video.addEventListener('contextmenu', (e) => {
         if (cursorMode === 'remote') {
           e.preventDefault();
-          const coords = getNormalizedVideoCoordinates(e.clientX, e.clientY, video);
-          if (!coords.inside) return;
-
-          // Touchpad secondary click support:
-          // If browser fired contextmenu without a prior mousedown button:2, synthesize right click
-          // so all laptop touchpad settings (two-finger tap, corner click, ctrl+click) work 100% identically!
-          if (lastMouseDownButton !== 2 || (Date.now() - lastMouseDownTime > 300)) {
-            sendInput({ type: 'mousedown', x: coords.x, y: coords.y, button: 2 });
-            setTimeout(() => {
-              sendInput({ type: 'mouseup', x: coords.x, y: coords.y, button: 2 });
-            }, 30);
-          }
+          // Never synthesize right click on contextmenu.
+          // Native laptop trackpads and mice dispatch mousedown(button: 2) & mouseup(button: 2)
+          // directly on two-finger tap, two-finger click, and corner click.
         }
       }, { signal });
 
@@ -2863,21 +2867,30 @@
 
     // ─── Adaptive Controls: Desktop vs Mobile Detection ─────────
     function isMobileClient() {
-      // 1. User Agent test for phones / tablets / mobile operating systems
       const ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
+
+      // 1. Desktop & Laptop operating systems must NEVER be classified as mobile
+      // This protects all laptop trackpads (MacBook, ThinkPad, Surface, Dell, HP, etc.)
+      const isDesktopOS = (/macintosh|mac os x/i.test(ua) && navigator.maxTouchPoints <= 1)
+        || (/windows nt/i.test(ua) && !/windows phone/i.test(ua))
+        || (/linux/i.test(ua) && !/android/i.test(ua))
+        || /cros/i.test(ua); // Chromebooks
+
+      if (isDesktopOS) {
+        return false;
+      }
+
+      // 2. Mobile User Agent test for phones / tablets / mobile operating systems
       const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(ua)
         || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS
 
-      // 2. Pointer & Touch characteristics
-      const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (isMobileUA) return true;
+
+      // 3. Pointer & Touch characteristics for devices without desktop OS
       const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
       const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
-      const isSmallScreen = window.innerWidth <= 1024;
 
-      // Mobile classification
-      if (isMobileUA) return true;
       if (isCoarsePointer && !isFinePointer) return true;
-      if (hasTouch && isSmallScreen && !isFinePointer) return true;
 
       return false;
     }

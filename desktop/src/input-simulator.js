@@ -76,6 +76,7 @@ class InputSimulator {
           await this._handleScroll(event);
           break;
         case 'doubleClick':
+        case 'doubleclick':
           await this._handleDoubleClick(event);
           break;
         case 'keydown':
@@ -120,6 +121,14 @@ class InputSimulator {
     this._lastMouseY = y;
     await this.mouse.setPosition(new this.Point(x, y));
 
+    // Release any stuck Control modifier before left-clicking so macOS doesn't turn it into a right click
+    if (event.button === 0 && !event.ctrlKey) {
+      if (this.ready && this.keyboard && this.Key) {
+        try { await this.keyboard.releaseKey(this.Key.LeftControl); } catch (e) {}
+        try { await this.keyboard.releaseKey(this.Key.RightControl); } catch (e) {}
+      }
+    }
+
     const button = this._mapButton(event.button);
     await this.mouse.pressButton(button);
   }
@@ -133,6 +142,13 @@ class InputSimulator {
 
     const button = this._mapButton(event.button);
     await this.mouse.releaseButton(button);
+
+    if (event.button === 0 && !event.ctrlKey) {
+      if (this.ready && this.keyboard && this.Key) {
+        try { await this.keyboard.releaseKey(this.Key.LeftControl); } catch (e) {}
+        try { await this.keyboard.releaseKey(this.Key.RightControl); } catch (e) {}
+      }
+    }
   }
 
   async _handleDoubleClick(event) {
